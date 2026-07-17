@@ -1,9 +1,8 @@
--- Spotify UI Library Example
-
 local Library = loadstring(
 	game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/SpotifyUILibrary.lua")
 )()
-llocal Window = Library:CreateWindow({
+
+local Window = Library:CreateWindow({
 	Title = "Meu Menu",
 	Subtitle = "Spotify UI Library",
 	Size = Vector2.new(940, 590),
@@ -13,6 +12,9 @@ llocal Window = Library:CreateWindow({
 	AnimateOnStart = true,
 	Keybind = Enum.KeyCode.RightShift,
 	ShowNowPlaying = true,
+	ShowSessionTimer = true,
+	SessionTimerDuration = 3600, -- Escala visual da barra: 1 hora.
+	SessionTimerText = "Tempo aberto",
 	-- CloseBehavior = "Destroy", -- O padrão é "Hide", permitindo reabrir pelo keybind.
 	-- GameName = "Nome personalizado",
 	-- GameCreator = "Criador personalizado",
@@ -100,5 +102,8 @@ SettingsTab:CreateLabel({
 -- Window:SetKeybind(Enum.KeyCode.F4)
 -- Window:SetGameInfo({ Name = "Novo nome", Creator = "Novo criador" })
 -- Window:SetNowPlayingVisible(false)
+-- Window:SetSessionTimerVisible(false)
+-- Window:ResetSessionTimer()
+-- print(Window:GetSessionElapsed())
 -- Window:SetScale(1.15)
 -- Window:SetSize(1000, 640)

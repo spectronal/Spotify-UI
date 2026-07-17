@@ -1,13 +1,14 @@
--- SpotifyUI Library v1.2.0
+-- Spotify UI Library v1.3.0
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
 local MarketplaceService = game:GetService("MarketplaceService")
+local RunService = game:GetService("RunService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Library = {
-	Version = "1.2.0",
+	Version = "1.3.0",
 	_windows = {},
 	_windowCounter = 0,
 }
@@ -44,15 +45,16 @@ local POP_TWEEN_INFO = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDir
 local FADE_TWEEN_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
 
 local TOPBAR_HEIGHT = 66
-local NOW_PLAYING_HEIGHT = 86
+local NOW_PLAYING_HEIGHT = 108
+local NOW_PLAYING_COMPACT_HEIGHT = 86
 local SIDEBAR_HEADER_HEIGHT = 88
 local SETTINGS_AREA_HEIGHT = 72
 local WINDOW_CORNER_RADIUS = 16
 local PANEL_CORNER_RADIUS = 12
 local CARD_CORNER_RADIUS = 10
 local CONTROL_CORNER_RADIUS = 8
-local WINDOW_OUTLINE_TRANSPARENCY = 0.18
-local WINDOW_SHADOW_TRANSPARENCY = 0.7
+local WINDOW_OUTLINE_TRANSPARENCY = 0.48
+local WINDOW_SHADOW_TRANSPARENCY = 0.78
 
 local DEFAULT_TAB_ICONS = {
 	home = "⌂",
@@ -235,6 +237,18 @@ local function normalizeConfig(config, textKey)
 		return { [textKey or "Text"] = config }
 	end
 	return config or {}
+end
+
+local function formatElapsedTime(seconds)
+	local totalSeconds = math.max(0, math.floor(tonumber(seconds) or 0))
+	local hours = math.floor(totalSeconds / 3600)
+	local minutes = math.floor((totalSeconds % 3600) / 60)
+	local secs = totalSeconds % 60
+
+	if hours > 0 then
+		return string.format("%d:%02d:%02d", hours, minutes, secs)
+	end
+	return string.format("%d:%02d", minutes, secs)
 end
 
 local function normalizeKeyCode(value)
@@ -1774,6 +1788,46 @@ function WindowMethods:SetNowPlayingVisible(visible)
 	return self
 end
 
+function WindowMethods:GetSessionElapsed()
+	return math.max(0, os.clock() - (self._sessionStartedAt or os.clock()))
+end
+
+function WindowMethods:ResetSessionTimer()
+	self._sessionStartedAt = os.clock()
+	self._sessionLastDisplayedSecond = -1
+	self:_updateSessionTimer(0)
+	return self
+end
+
+function WindowMethods:SetSessionTimerVisible(visible)
+	self._sessionTimerVisible = visible == true
+	if self._sessionTimerContainer then
+		self._sessionTimerContainer.Visible = self._sessionTimerVisible
+	end
+	self:_updateResponsiveScale()
+	return self
+end
+
+function WindowMethods:_updateSessionTimer(elapsed)
+	if self._destroyed or not self._sessionTimerFill then
+		return
+	end
+
+	local currentElapsed = math.max(0, tonumber(elapsed) or self:GetSessionElapsed())
+	local duration = math.max(self._sessionTimerDuration or 3600, 1)
+	local progress = math.clamp(currentElapsed / duration, 0, 1)
+
+	self._sessionTimerFill.Size = UDim2.new(progress, 0, 1, 0)
+	self._sessionTimerKnob.Position = UDim2.new(progress, 0, 0.5, 0)
+	self._sessionTimerKnob.Visible = progress > 0.002
+
+	local displayedSecond = math.floor(currentElapsed)
+	if displayedSecond ~= self._sessionLastDisplayedSecond then
+		self._sessionLastDisplayedSecond = displayedSecond
+		self._sessionElapsedLabel.Text = formatElapsedTime(displayedSecond)
+	end
+end
+
 function WindowMethods:_clampToViewport(viewport, effectiveScale)
 	local scaledSize = self._baseSize * effectiveScale
 	local halfSize = scaledSize / 2
@@ -1802,10 +1856,10 @@ function WindowMethods:_syncWindowLayers()
 	local size = self._main.Size
 
 	self._outline.Position = position
-	self._outline.Size = UDim2.new(size.X.Scale, size.X.Offset + 2, size.Y.Scale, size.Y.Offset + 2)
+	self._outline.Size = size
 
-	self._shadow.Position = UDim2.new(position.X.Scale, position.X.Offset, position.Y.Scale, position.Y.Offset + 10)
-	self._shadow.Size = UDim2.new(size.X.Scale, size.X.Offset + 18, size.Y.Scale, size.Y.Offset + 18)
+	self._shadow.Position = UDim2.new(position.X.Scale, position.X.Offset, position.Y.Scale, position.Y.Offset + 6)
+	self._shadow.Size = UDim2.new(size.X.Scale, size.X.Offset + 12, size.Y.Scale, size.Y.Offset + 12)
 end
 
 function WindowMethods:_cancelVisibilityTweens()
@@ -1913,7 +1967,7 @@ function WindowMethods:SetVisible(visible, instant)
 	if not animationsEnabled then
 		self:_setLayerVisibility(isVisible)
 		self._main.GroupTransparency = isVisible and 0 or 1
-		self._outline.BackgroundTransparency = isVisible and WINDOW_OUTLINE_TRANSPARENCY or 1
+		self._outlineStroke.Transparency = isVisible and WINDOW_OUTLINE_TRANSPARENCY or 1
 		self._shadow.BackgroundTransparency = isVisible and WINDOW_SHADOW_TRANSPARENCY or 1
 		self._uiScale.Scale = targetScale
 		self._outlineScale.Scale = targetScale
@@ -1929,7 +1983,7 @@ function WindowMethods:SetVisible(visible, instant)
 
 	if isVisible then
 		self._main.GroupTransparency = 1
-		self._outline.BackgroundTransparency = 1
+		self._outlineStroke.Transparency = 1
 		self._shadow.BackgroundTransparency = 1
 		self._uiScale.Scale = scaleFrom
 		self._outlineScale.Scale = scaleFrom
@@ -1942,8 +1996,8 @@ function WindowMethods:SetVisible(visible, instant)
 	local groupTween = playTween(self._main, FADE_TWEEN_INFO, {
 		GroupTransparency = isVisible and 0 or 1,
 	})
-	local outlineTween = playTween(self._outline, FADE_TWEEN_INFO, {
-		BackgroundTransparency = isVisible and WINDOW_OUTLINE_TRANSPARENCY or 1,
+	local outlineTween = playTween(self._outlineStroke, FADE_TWEEN_INFO, {
+		Transparency = isVisible and WINDOW_OUTLINE_TRANSPARENCY or 1,
 	})
 	local shadowTween = playTween(self._shadow, FADE_TWEEN_INFO, {
 		BackgroundTransparency = isVisible and WINDOW_SHADOW_TRANSPARENCY or 1,
@@ -2037,7 +2091,10 @@ function WindowMethods:_updateResponsiveScale(animated)
 	local logicalViewportWidth = viewport.X / math.max(effectiveScale, 0.01)
 	local compact = logicalViewportWidth < 820
 	local sidebarWidth = compact and 184 or math.clamp(self._baseSize.X * 0.225, 198, 224)
-	local nowPlayingHeight = self._nowPlayingVisible and NOW_PLAYING_HEIGHT or 0
+	local nowPlayingHeight = 0
+	if self._nowPlayingVisible then
+		nowPlayingHeight = self._sessionTimerVisible and NOW_PLAYING_HEIGHT or NOW_PLAYING_COMPACT_HEIGHT
+	end
 
 	self._sidebar.Size = UDim2.new(0, sidebarWidth, 1, -nowPlayingHeight)
 	self._content.Position = UDim2.fromOffset(sidebarWidth, 0)
@@ -2046,6 +2103,15 @@ function WindowMethods:_updateResponsiveScale(animated)
 	self._nowPlaying.Size = UDim2.new(1, 0, 0, nowPlayingHeight)
 	self._sidebarDivider.Position = UDim2.fromOffset(sidebarWidth - 1, 0)
 	self._sidebarDivider.Size = UDim2.new(0, 1, 1, -nowPlayingHeight)
+	self._sidebarBottomPatch.Visible = self._nowPlayingVisible
+
+	if self._sessionTimerVisible then
+		self._gameStatus.AnchorPoint = Vector2.new(1, 0)
+		self._gameStatus.Position = UDim2.new(1, -18, 0, 18)
+	else
+		self._gameStatus.AnchorPoint = Vector2.new(1, 0.5)
+		self._gameStatus.Position = UDim2.new(1, -18, 0.5, 0)
+	end
 
 	local showGameStatus = self._nowPlayingVisible and logicalViewportWidth >= 790
 	self._gameStatus.Visible = showGameStatus
@@ -2523,6 +2589,11 @@ function Library:CreateWindow(config)
 		baseSize = Vector2.new(940, 590)
 	end
 	baseSize = Vector2.new(math.clamp(baseSize.X, 720, 1280), math.clamp(baseSize.Y, 460, 820))
+	local sessionTimerVisible = config.ShowSessionTimer ~= false
+	local initialNowPlayingHeight = 0
+	if config.ShowNowPlaying ~= false then
+		initialNowPlayingHeight = sessionTimerVisible and NOW_PLAYING_HEIGHT or NOW_PLAYING_COMPACT_HEIGHT
+	end
 
 	local initialKeybind
 	if config.Keybind == nil then
@@ -2547,28 +2618,30 @@ function Library:CreateWindow(config)
 	local shadow = create("Frame", {
 		Name = "WindowShadow",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 0, 0.5, 10),
-		Size = UDim2.fromOffset(baseSize.X + 18, baseSize.Y + 18),
+		Position = UDim2.new(0.5, 0, 0.5, 6),
+		Size = UDim2.fromOffset(baseSize.X + 12, baseSize.Y + 12),
 		BackgroundColor3 = Theme.Shadow,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 1,
 		Parent = screenGui,
 	})
-	addCorner(shadow, WINDOW_CORNER_RADIUS + 7)
+	addCorner(shadow, WINDOW_CORNER_RADIUS + 5)
 
+	-- O contorno fica em uma camada própria, exatamente do tamanho da janela.
+	-- Isso evita a moldura preenchida e espessuras irregulares.
 	local outline = create("Frame", {
 		Name = "WindowOutline",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(baseSize.X + 2, baseSize.Y + 2),
-		BackgroundColor3 = Theme.Outline,
+		Size = UDim2.fromOffset(baseSize.X, baseSize.Y),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ZIndex = 2,
+		ZIndex = 90,
 		Parent = screenGui,
 	})
-	addCorner(outline, WINDOW_CORNER_RADIUS + 1)
+	addCorner(outline, WINDOW_CORNER_RADIUS)
+	local outlineStroke = addStroke(outline, Theme.Outline, 1, 1)
 
 	local main = create("CanvasGroup", {
 		Name = "Main",
@@ -2600,16 +2673,43 @@ function Library:CreateWindow(config)
 
 	local sidebar = create("Frame", {
 		Name = "Sidebar",
-		Size = UDim2.new(0, 220, 1, -NOW_PLAYING_HEIGHT),
-		BackgroundColor3 = Theme.Sidebar,
+		Size = UDim2.new(0, 220, 1, -initialNowPlayingHeight),
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 3,
 		Parent = main,
 	})
-	addGradient(sidebar, Color3.fromRGB(24, 24, 24), Color3.fromRGB(18, 18, 18), 90)
 
-	-- A sidebar não recebe UICorner próprio. O recorte vem da janela principal,
-	-- evitando quinas internas arredondadas e linhas quebradas junto à barra inferior.
+	-- ClipsDescendants usa um recorte retangular. As superfícies abaixo pintam
+	-- somente os cantos externos corretos, sem depender de clipping arredondado.
+	local sidebarSurface = create("Frame", {
+		Name = "Surface",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Theme.Sidebar,
+		BorderSizePixel = 0,
+		ZIndex = 3,
+		Parent = sidebar,
+	})
+	addCorner(sidebarSurface, WINDOW_CORNER_RADIUS)
+	create("Frame", {
+		Name = "SquareRight",
+		Position = UDim2.new(1, -WINDOW_CORNER_RADIUS, 0, 0),
+		Size = UDim2.new(0, WINDOW_CORNER_RADIUS, 1, 0),
+		BackgroundColor3 = Theme.Sidebar,
+		BorderSizePixel = 0,
+		ZIndex = 3,
+		Parent = sidebarSurface,
+	})
+	local sidebarBottomPatch = create("Frame", {
+		Name = "SquareBottom",
+		Position = UDim2.new(0, 0, 1, -WINDOW_CORNER_RADIUS),
+		Size = UDim2.new(1, 0, 0, WINDOW_CORNER_RADIUS),
+		BackgroundColor3 = Theme.Sidebar,
+		BorderSizePixel = 0,
+		Visible = config.ShowNowPlaying ~= false,
+		ZIndex = 3,
+		Parent = sidebarSurface,
+	})
 
 	local titleLabel = makeTextLabel(sidebar, {
 		Position = UDim2.fromOffset(18, 17),
@@ -2683,7 +2783,7 @@ function Library:CreateWindow(config)
 	local content = create("Frame", {
 		Name = "Content",
 		Position = UDim2.fromOffset(220, 0),
-		Size = UDim2.new(1, -220, 1, -NOW_PLAYING_HEIGHT),
+		Size = UDim2.new(1, -220, 1, -initialNowPlayingHeight),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 3,
@@ -2693,7 +2793,7 @@ function Library:CreateWindow(config)
 	local sidebarDivider = create("Frame", {
 		Name = "SidebarDivider",
 		Position = UDim2.fromOffset(219, 0),
-		Size = UDim2.new(0, 1, 1, -NOW_PLAYING_HEIGHT),
+		Size = UDim2.new(0, 1, 1, -initialNowPlayingHeight),
 		BackgroundColor3 = Theme.Divider,
 		BackgroundTransparency = 0.58,
 		BorderSizePixel = 0,
@@ -2704,12 +2804,37 @@ function Library:CreateWindow(config)
 	local topbar = create("Frame", {
 		Name = "Topbar",
 		Size = UDim2.new(1, 0, 0, TOPBAR_HEIGHT),
-		BackgroundColor3 = Theme.BackgroundAlt,
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 4,
 		Parent = content,
 	})
-	addGradient(topbar, Color3.fromRGB(21, 21, 21), Color3.fromRGB(15, 15, 15), 90)
+	local topbarSurface = create("Frame", {
+		Name = "Surface",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Theme.BackgroundAlt,
+		BorderSizePixel = 0,
+		ZIndex = 4,
+		Parent = topbar,
+	})
+	addCorner(topbarSurface, WINDOW_CORNER_RADIUS)
+	create("Frame", {
+		Name = "SquareLeft",
+		Size = UDim2.new(0, WINDOW_CORNER_RADIUS, 1, 0),
+		BackgroundColor3 = Theme.BackgroundAlt,
+		BorderSizePixel = 0,
+		ZIndex = 4,
+		Parent = topbarSurface,
+	})
+	create("Frame", {
+		Name = "SquareBottom",
+		Position = UDim2.new(0, 0, 1, -WINDOW_CORNER_RADIUS),
+		Size = UDim2.new(1, 0, 0, WINDOW_CORNER_RADIUS),
+		BackgroundColor3 = Theme.BackgroundAlt,
+		BorderSizePixel = 0,
+		ZIndex = 4,
+		Parent = topbarSurface,
+	})
 	create("Frame", {
 		Name = "BottomDivider",
 		Position = UDim2.new(0, 14, 1, -1),
@@ -2812,15 +2937,31 @@ function Library:CreateWindow(config)
 
 	local nowPlaying = create("Frame", {
 		Name = "NowPlaying",
-		Position = UDim2.new(0, 0, 1, -NOW_PLAYING_HEIGHT),
-		Size = UDim2.new(1, 0, 0, NOW_PLAYING_HEIGHT),
-		BackgroundColor3 = Theme.Sidebar,
+		Position = UDim2.new(0, 0, 1, -initialNowPlayingHeight),
+		Size = UDim2.new(1, 0, 0, initialNowPlayingHeight),
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Visible = config.ShowNowPlaying ~= false,
 		ZIndex = 20,
 		Parent = main,
 	})
-	addGradient(nowPlaying, Color3.fromRGB(24, 24, 24), Color3.fromRGB(17, 17, 17), 0)
+	local nowPlayingSurface = create("Frame", {
+		Name = "Surface",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Theme.Sidebar,
+		BorderSizePixel = 0,
+		ZIndex = 20,
+		Parent = nowPlaying,
+	})
+	addCorner(nowPlayingSurface, WINDOW_CORNER_RADIUS)
+	create("Frame", {
+		Name = "SquareTop",
+		Size = UDim2.new(1, 0, 0, WINDOW_CORNER_RADIUS),
+		BackgroundColor3 = Theme.Sidebar,
+		BorderSizePixel = 0,
+		ZIndex = 20,
+		Parent = nowPlayingSurface,
+	})
 
 	create("Frame", {
 		Name = "TopDivider",
@@ -2897,8 +3038,8 @@ function Library:CreateWindow(config)
 	})
 
 	local gameStatus = makeTextButton(nowPlaying, {
-		AnchorPoint = Vector2.new(1, 0.5),
-		Position = UDim2.new(1, -18, 0.5, 0),
+		AnchorPoint = sessionTimerVisible and Vector2.new(1, 0) or Vector2.new(1, 0.5),
+		Position = sessionTimerVisible and UDim2.new(1, -18, 0, 18) or UDim2.new(1, -18, 0.5, 0),
 		Size = UDim2.fromOffset(142, 34),
 		BackgroundColor3 = Theme.Card,
 		Text = "",
@@ -2950,6 +3091,107 @@ function Library:CreateWindow(config)
 		ZIndex = 22,
 	})
 
+	local sessionTimerContainer = create("Frame", {
+		Name = "SessionTimer",
+		Position = UDim2.fromOffset(88, 68),
+		Size = UDim2.new(1, -106, 0, 30),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Visible = sessionTimerVisible,
+		ZIndex = 22,
+		Parent = nowPlaying,
+	})
+
+	local sessionTimerTrack = create("Frame", {
+		Name = "Track",
+		Position = UDim2.fromOffset(0, 3),
+		Size = UDim2.new(1, 0, 0, 4),
+		BackgroundColor3 = Theme.Track,
+		BackgroundTransparency = 0.18,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		Active = true,
+		ZIndex = 22,
+		Parent = sessionTimerContainer,
+	})
+	addCorner(sessionTimerTrack, 3)
+
+	local sessionTimerFill = create("Frame", {
+		Name = "Fill",
+		Size = UDim2.new(0, 0, 1, 0),
+		BackgroundColor3 = Theme.Accent,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 23,
+		Parent = sessionTimerTrack,
+	})
+	addCorner(sessionTimerFill, 3)
+	addGradient(sessionTimerFill, Theme.Accent, Theme.AccentHover, 0)
+
+	local sessionTimerKnob = create("Frame", {
+		Name = "Knob",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0, 0, 0.5, 0),
+		Size = UDim2.fromOffset(9, 9),
+		BackgroundColor3 = Theme.Text,
+		BackgroundTransparency = 0.08,
+		BorderSizePixel = 0,
+		Visible = false,
+		ZIndex = 24,
+		Parent = sessionTimerTrack,
+	})
+	addCorner(sessionTimerKnob, 5)
+	addStroke(sessionTimerKnob, Theme.Shadow, 0.66, 1)
+
+	local sessionElapsedLabel = makeTextLabel(sessionTimerContainer, {
+		Name = "Elapsed",
+		Position = UDim2.fromOffset(0, 11),
+		Size = UDim2.fromOffset(94, 17),
+		Font = Enum.Font.GothamMedium,
+		Text = "0:00",
+		TextColor3 = Theme.Subtext,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 10,
+		ZIndex = 23,
+	})
+
+	makeTextLabel(sessionTimerContainer, {
+		Name = "Caption",
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 11),
+		Size = UDim2.fromOffset(150, 17),
+		Font = Enum.Font.GothamMedium,
+		Text = tostring(config.SessionTimerText or "Tempo aberto"),
+		TextColor3 = Theme.Muted,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextSize = 10,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 23,
+	})
+
+	maid:Give(sessionTimerTrack.MouseEnter:Connect(function()
+		playTween(sessionTimerTrack, FAST_TWEEN_INFO, {
+			Position = UDim2.fromOffset(0, 2),
+			Size = UDim2.new(1, 0, 0, 6),
+			BackgroundTransparency = 0.04,
+		})
+		playTween(sessionTimerKnob, FAST_TWEEN_INFO, {
+			Size = UDim2.fromOffset(11, 11),
+			BackgroundTransparency = 0,
+		})
+	end))
+	maid:Give(sessionTimerTrack.MouseLeave:Connect(function()
+		playTween(sessionTimerTrack, FAST_TWEEN_INFO, {
+			Position = UDim2.fromOffset(0, 3),
+			Size = UDim2.new(1, 0, 0, 4),
+			BackgroundTransparency = 0.18,
+		})
+		playTween(sessionTimerKnob, FAST_TWEEN_INFO, {
+			Size = UDim2.fromOffset(9, 9),
+			BackgroundTransparency = 0.08,
+		})
+	end))
+
 	bindInteractiveSurface(gameStatus, maid, gameStatus, gameStatusStroke, gameStatusScale, {
 		NormalColor = Theme.Card,
 		HoverColor = Theme.CardHover,
@@ -2992,10 +3234,12 @@ function Library:CreateWindow(config)
 		_shadow = shadow,
 		_shadowScale = shadowScale,
 		_outline = outline,
+		_outlineStroke = outlineStroke,
 		_outlineScale = outlineScale,
 		_main = main,
 		_uiScale = uiScale,
 		_sidebar = sidebar,
+		_sidebarBottomPatch = sidebarBottomPatch,
 		_sidebarDivider = sidebarDivider,
 		_content = content,
 		_titleLabel = titleLabel,
@@ -3011,6 +3255,14 @@ function Library:CreateWindow(config)
 		_gameNameLabel = gameNameLabel,
 		_gameCreatorLabel = gameCreatorLabel,
 		_gameStatus = gameStatus,
+		_sessionTimerContainer = sessionTimerContainer,
+		_sessionTimerFill = sessionTimerFill,
+		_sessionTimerKnob = sessionTimerKnob,
+		_sessionElapsedLabel = sessionElapsedLabel,
+		_sessionStartedAt = os.clock(),
+		_sessionTimerDuration = math.max(tonumber(config.SessionTimerDuration) or 3600, 1),
+		_sessionTimerVisible = sessionTimerVisible,
+		_sessionLastDisplayedSecond = -1,
 		_nowPlayingVisible = config.ShowNowPlaying ~= false,
 		_notificationContainer = notificationContainer,
 		_notificationScale = notificationScale,
@@ -3049,6 +3301,13 @@ function Library:CreateWindow(config)
 		window:_cancelVisibilityTweens()
 		window:_cancelResponsiveTweens()
 	end)
+
+	window:_updateSessionTimer(0)
+	maid:Give(RunService.Heartbeat:Connect(function()
+		if not window._destroyed and window._sessionTimerVisible then
+			window:_updateSessionTimer(window:GetSessionElapsed())
+		end
+	end))
 
 	bindInteractiveSurface(scaleMinus, maid, scaleMinus, scaleMinusStroke, scaleMinusScale, {
 		NormalColor = Theme.Card,
