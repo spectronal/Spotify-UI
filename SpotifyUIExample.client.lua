@@ -1,16 +1,25 @@
 -- Spotify UI Library Example
 
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/SpotifyUI/SpotifyUI/main/SpotifyUILibrary.lua"))() :: any
-
+local Library =
+	game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/SpotifyUILibrary.lua")
 local Window = Library:CreateWindow({
 	Title = "Meu Menu",
 	Subtitle = "Spotify UI Library",
 	Size = Vector2.new(940, 590),
 	Scale = 1,
 	AutoScale = true,
+	Keybind = Enum.KeyCode.RightShift,
+	ShowNowPlaying = true,
+	-- CloseBehavior = "Destroy", -- O padrão é "Hide", permitindo reabrir pelo keybind.
+	-- GameName = "Nome personalizado",
+	-- GameCreator = "Criador personalizado",
+	-- GameIcon = "rbxassetid://0000000000",
 })
 
-local HomeTab = Window:CreateTab("Home")
+local HomeTab = Window:CreateTab({
+	Name = "Home",
+	Icon = "⌂",
+})
 local ControlsSection = HomeTab:CreateSection("Controles principais")
 
 ControlsSection:CreateButton({
@@ -63,10 +72,13 @@ ControlsSection:CreateInput({
 	end,
 })
 
-local AboutTab = Window:CreateTab("Sobre")
+local AboutTab = Window:CreateTab({
+	Name = "Sobre",
+	Icon = "i",
+})
 AboutTab:CreateParagraph({
 	Title = "Spotify UI Library",
-	Content = "A janela se adapta automaticamente ao ViewportSize. Use os botões - e + no topo ou Window:SetScale(1.2) para alterar a escala.",
+	Content = "A janela se adapta ao ViewportSize. Use os botões - e +, Window:SetScale() ou pressione RightShift para ocultar e reabrir o menu.",
 })
 AboutTab:CreateLabel({
 	Text = "Versão " .. Library.Version,
@@ -74,6 +86,16 @@ AboutTab:CreateLabel({
 	Color = Library.Theme.AccentHover,
 })
 
--- Também pode ser alterado por código:
+-- A tab Settings e o Keybind Picker são criados automaticamente.
+local SettingsTab = Window:GetSettingsTab()
+SettingsTab:CreateLabel({
+	Text = "O atalho só é mantido durante a sessão atual.",
+	Color = Library.Theme.Subtext,
+})
+
+-- APIs adicionais:
+-- Window:SetKeybind(Enum.KeyCode.F4)
+-- Window:SetGameInfo({ Name = "Novo nome", Creator = "Novo criador" })
+-- Window:SetNowPlayingVisible(false)
 -- Window:SetScale(1.15)
 -- Window:SetSize(1000, 640)
