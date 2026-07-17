@@ -19,8 +19,6 @@
 
 A **Spotify UI Library** é uma biblioteca de interface para Roblox focada em uma API simples, visual consistente e fácil manutenção. Ela oferece uma janela completa com sidebar, tabs, sections, componentes interativos, notificações, escala responsiva, keybind configurável e uma barra inferior inspirada no “Now Playing” do Spotify.
 
-A biblioteca funciona em um único `ModuleScript`, não exige pacotes externos e foi projetada para ser usada no cliente por meio de um `LocalScript`.
-
 > [!IMPORTANT]
 > Esta biblioteca deve ser executada no cliente. Não use `CreateWindow` em `Script` de servidor.
 
@@ -44,7 +42,6 @@ A biblioteca funciona em um único `ModuleScript`, não exige pacotes externos e
 - [Limpeza e destruição](#-limpeza-e-destruição)
 - [Exemplo completo](#-exemplo-completo)
 - [Update Logs](#-update-logs)
-- [Como adicionar um novo Update Log](#-como-adicionar-um-novo-update-log)
 - [Problemas comuns](#-problemas-comuns)
 
 ---
@@ -88,9 +85,7 @@ A biblioteca funciona em um único `ModuleScript`, não exige pacotes externos e
 
 ## ✅ Requisitos
 
-- Roblox Studio.
-- Um `LocalScript` para inicializar a biblioteca.
-- O `ModuleScript` disponível para o cliente, normalmente em `ReplicatedStorage`.
+- Roblox Studio ou um Executor decente.
 
 A biblioteca utiliza apenas serviços nativos do Roblox:
 
@@ -135,8 +130,7 @@ StarterGui
 ### 3. Importe a biblioteca
 
 ```lua
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Library = require(ReplicatedStorage:WaitForChild("SpotifyUILibrary"))
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/SpotifyUILibrary.lua"))()
 ```
 
 ---
@@ -144,8 +138,7 @@ local Library = require(ReplicatedStorage:WaitForChild("SpotifyUILibrary"))
 ## ⚡ Início rápido
 
 ```lua
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Library = require(ReplicatedStorage:WaitForChild("SpotifyUILibrary"))
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/SpotifyUILibrary.lua"))()
 
 local Window = Library:CreateWindow({
     Title = "Meu Menu",
@@ -1027,37 +1020,6 @@ Esta seção registra as mudanças de cada versão. Mantenha a versão mais rece
 
 ---
 
-## 📝 Como adicionar um novo Update Log
-
-Copie o modelo abaixo, cole **acima da versão anterior** e substitua os campos necessários:
-
-```md
-## `vX.Y.Z` — DD/MM/AAAA
-
-### ✨ Adicionado
-
-- Nova feature adicionada.
-- Novo componente ou nova API.
-
-### 🔧 Alterado
-
-- Comportamento atualizado.
-- Ajuste visual ou alteração de API.
-
-### 🐛 Corrigido
-
-- Bug corrigido.
-- Problema de responsividade resolvido.
-
-### 🗑️ Removido
-
-- Recurso removido ou descontinuado.
-
-### ⚠️ Breaking Changes
-
-- Mudança que exige alteração no código de quem usa a biblioteca.
-```
-
 ### Sugestão de versionamento
 
 Use o formato `MAJOR.MINOR.PATCH`:
@@ -1099,10 +1061,6 @@ A biblioteca está sendo executada no servidor. Mova o código de inicializaçã
 ### A interface não aparece
 
 Confirme que:
-
-- O ModuleScript está em `ReplicatedStorage`.
-- O nome usado em `WaitForChild` está correto.
-- O LocalScript está em `StarterPlayerScripts` ou `StarterGui`.
 - Nenhum erro anterior interrompeu o script.
 
 ### A janela fecha e não volta
@@ -1152,22 +1110,6 @@ Destrua-o para remover a interface e suas conexões:
 ```lua
 Component:Destroy()
 ```
-
----
-
-## 🤝 Contribuição
-
-Ao evoluir a biblioteca:
-
-1. Preserve a API existente sempre que possível.
-2. Registre novas conexões no sistema de limpeza.
-3. Teste mouse e toque.
-4. Teste resoluções pequenas e ultrawide.
-5. Verifique `ZIndex`, clipping e rolagem.
-6. Adicione a mudança aos Update Logs.
-7. Atualize `Library.Version`.
-
----
 
 ## 📄 Licença
 
