@@ -1,33 +1,73 @@
--- Spotify UI Library source code 1.2.0v
+-- SpotifyUI Library v1.2.0
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
+local MarketplaceService = game:GetService("MarketplaceService")
 local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Library = {
-	Version = "1.0.0",
+	Version = "1.2.0",
 	_windows = {},
 	_windowCounter = 0,
 }
 
 local Theme = {
-	Background = Color3.fromRGB(18, 18, 18),
-	Sidebar = Color3.fromRGB(24, 24, 24),
-	Card = Color3.fromRGB(30, 30, 30),
-	CardHover = Color3.fromRGB(40, 40, 40),
-	Input = Color3.fromRGB(37, 37, 37),
+	Background = Color3.fromRGB(15, 15, 15),
+	BackgroundAlt = Color3.fromRGB(18, 18, 18),
+	Sidebar = Color3.fromRGB(22, 22, 22),
+	Panel = Color3.fromRGB(25, 25, 25),
+	PanelAlt = Color3.fromRGB(21, 21, 21),
+	Card = Color3.fromRGB(31, 31, 31),
+	CardHover = Color3.fromRGB(39, 39, 39),
+	CardPressed = Color3.fromRGB(34, 34, 34),
+	Input = Color3.fromRGB(36, 36, 36),
+	InputHover = Color3.fromRGB(42, 42, 42),
 	Accent = Color3.fromRGB(29, 185, 84),
 	AccentHover = Color3.fromRGB(30, 215, 96),
+	AccentSoft = Color3.fromRGB(23, 122, 59),
 	Text = Color3.fromRGB(255, 255, 255),
 	Subtext = Color3.fromRGB(179, 179, 179),
-	Stroke = Color3.fromRGB(58, 58, 58),
+	Muted = Color3.fromRGB(126, 126, 126),
+	Stroke = Color3.fromRGB(67, 67, 67),
+	Outline = Color3.fromRGB(72, 72, 72),
+	Divider = Color3.fromRGB(54, 54, 54),
+	Selected = Color3.fromRGB(38, 38, 38),
+	Track = Color3.fromRGB(78, 78, 78),
 	Shadow = Color3.fromRGB(0, 0, 0),
 	Danger = Color3.fromRGB(232, 72, 85),
 }
 
-local TWEEN_INFO = TweenInfo.new(0.18, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
-local FAST_TWEEN_INFO = TweenInfo.new(0.12, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local FAST_TWEEN_INFO = TweenInfo.new(0.13, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
+local POP_TWEEN_INFO = TweenInfo.new(0.28, Enum.EasingStyle.Back, Enum.EasingDirection.Out)
+local FADE_TWEEN_INFO = TweenInfo.new(0.22, Enum.EasingStyle.Sine, Enum.EasingDirection.Out)
+
+local TOPBAR_HEIGHT = 66
+local NOW_PLAYING_HEIGHT = 86
+local SIDEBAR_HEADER_HEIGHT = 88
+local SETTINGS_AREA_HEIGHT = 72
+local WINDOW_CORNER_RADIUS = 16
+local PANEL_CORNER_RADIUS = 12
+local CARD_CORNER_RADIUS = 10
+local CONTROL_CORNER_RADIUS = 8
+local WINDOW_OUTLINE_TRANSPARENCY = 0.18
+local WINDOW_SHADOW_TRANSPARENCY = 0.7
+
+local DEFAULT_TAB_ICONS = {
+	home = "⌂",
+	inicio = "⌂",
+	["início"] = "⌂",
+	main = "⌂",
+	sobre = "i",
+	about = "i",
+	player = "▶",
+	music = "♫",
+	musica = "♫",
+	settings = "⚙",
+	configuracoes = "⚙",
+	["configurações"] = "⚙",
+}
 
 -- Maid simples para impedir vazamento de conexões, threads e objetos temporários.
 local Maid = {}
@@ -43,6 +83,8 @@ local function cleanupTask(taskItem)
 		if taskItem.Connected then
 			taskItem:Disconnect()
 		end
+	elseif itemType == "Tween" then
+		taskItem:Cancel()
 	elseif itemType == "Instance" then
 		taskItem:Destroy()
 	elseif type(taskItem) == "function" then
@@ -138,8 +180,20 @@ local function addStroke(parent, color, transparency, thickness)
 	return create("UIStroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		Color = color or Theme.Stroke,
-		Transparency = transparency or 0.45,
+		Transparency = transparency == nil and 0.45 or transparency,
 		Thickness = thickness or 1,
+		LineJoinMode = Enum.LineJoinMode.Round,
+		Parent = parent,
+	})
+end
+
+local function addGradient(parent, startColor, endColor, rotation)
+	return create("UIGradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, startColor),
+			ColorSequenceKeypoint.new(1, endColor),
+		}),
+		Rotation = rotation or 90,
 		Parent = parent,
 	})
 end
@@ -147,6 +201,15 @@ end
 local function playTween(instance, tweenInfo, properties)
 	local tween = TweenService:Create(instance, tweenInfo or TWEEN_INFO, properties)
 	tween:Play()
+	return tween
+end
+
+local function replaceTween(owner, key, tween)
+	local previous = owner[key]
+	if previous then
+		previous:Cancel()
+	end
+	owner[key] = tween
 	return tween
 end
 
@@ -174,6 +237,100 @@ local function normalizeConfig(config, textKey)
 	return config or {}
 end
 
+local function normalizeKeyCode(value)
+	if value == nil or value == false or value == Enum.KeyCode.Unknown then
+		return nil
+	end
+
+	if typeof(value) == "EnumItem" and value.EnumType == Enum.KeyCode then
+		return value
+	end
+
+	if type(value) == "string" then
+		local ok, keyCode = pcall(function()
+			return Enum.KeyCode[value]
+		end)
+		if ok then
+			return keyCode
+		end
+	end
+
+	return nil
+end
+
+local function getKeyCodeDisplayName(keyCode)
+	if keyCode == nil or keyCode == Enum.KeyCode.Unknown then
+		return "Nenhuma tecla"
+	end
+
+	local ok, displayName = pcall(function()
+		return UserInputService:GetStringForKeyCode(keyCode)
+	end)
+
+	if ok and type(displayName) == "string" and displayName ~= "" then
+		return displayName
+	end
+
+	return keyCode.Name
+end
+
+local function normalizeTabConfig(nameOrConfig, iconOverride)
+	local config
+	if type(nameOrConfig) == "table" then
+		config = table.clone(nameOrConfig)
+	else
+		config = {
+			Name = tostring(nameOrConfig or "Tab"),
+			Icon = iconOverride,
+		}
+	end
+
+	config.Name = tostring(config.Name or config.Text or "Tab")
+	if config.Icon == nil then
+		local normalizedName = string.lower(config.Name)
+		config.Icon = DEFAULT_TAB_ICONS[normalizedName] or string.upper(string.sub(config.Name, 1, 1))
+	end
+
+	return config
+end
+
+local function isImageIcon(icon)
+	if type(icon) ~= "string" then
+		return false
+	end
+
+	return string.match(icon, "^rbxasset") ~= nil
+		or string.match(icon, "^rbxthumb") ~= nil
+		or string.match(icon, "^https?://") ~= nil
+end
+
+local function attachComponentLifecycle(api, maid, root, beforeDestroy)
+	local destroyed = false
+	maid:Give(root)
+
+	function api:IsDestroyed()
+		return destroyed
+	end
+
+	function api:Destroy()
+		if destroyed then
+			return
+		end
+		destroyed = true
+
+		if type(beforeDestroy) == "function" then
+			local ok, err = pcall(beforeDestroy)
+			if not ok then
+				warn("[SpotifyUI] Erro ao destruir componente:", err)
+			end
+		end
+
+		maid:Cleanup()
+	end
+
+	return api
+end
+
 local function bindHover(button, maid, normalColor, hoverColor)
 	maid:Give(button.MouseEnter:Connect(function()
 		playTween(button, FAST_TWEEN_INFO, { BackgroundColor3 = hoverColor })
@@ -182,6 +339,64 @@ local function bindHover(button, maid, normalColor, hoverColor)
 	maid:Give(button.MouseLeave:Connect(function()
 		playTween(button, FAST_TWEEN_INFO, { BackgroundColor3 = normalColor })
 	end))
+end
+
+local function bindInteractiveSurface(hitbox, maid, surface, stroke, scale, options)
+	options = options or {}
+	local normalColor = options.NormalColor or Theme.Card
+	local hoverColor = options.HoverColor or Theme.CardHover
+	local pressedColor = options.PressedColor or Theme.CardPressed
+	local normalStrokeColor = options.StrokeColor or Theme.Stroke
+	local hoverStrokeColor = options.HoverStrokeColor or Theme.AccentSoft
+	local normalStrokeTransparency = options.StrokeTransparency == nil and 0.78 or options.StrokeTransparency
+	local hoverStrokeTransparency = options.HoverStrokeTransparency == nil and 0.42 or options.HoverStrokeTransparency
+	local hovered = false
+	local pressed = false
+
+	local function render()
+		local targetColor = pressed and pressedColor or (hovered and hoverColor or normalColor)
+		playTween(surface, FAST_TWEEN_INFO, { BackgroundColor3 = targetColor })
+
+		if stroke then
+			playTween(stroke, FAST_TWEEN_INFO, {
+				Color = hovered and hoverStrokeColor or normalStrokeColor,
+				Transparency = hovered and hoverStrokeTransparency or normalStrokeTransparency,
+			})
+		end
+
+		if scale then
+			playTween(scale, FAST_TWEEN_INFO, {
+				Scale = pressed and 0.992 or 1,
+			})
+		end
+	end
+
+	maid:Give(hitbox.MouseEnter:Connect(function()
+		hovered = true
+		render()
+	end))
+
+	maid:Give(hitbox.MouseLeave:Connect(function()
+		hovered = false
+		pressed = false
+		render()
+	end))
+
+	maid:Give(hitbox.MouseButton1Down:Connect(function()
+		pressed = true
+		render()
+	end))
+
+	maid:Give(hitbox.MouseButton1Up:Connect(function()
+		pressed = false
+		render()
+	end))
+
+	return function()
+		hovered = false
+		pressed = false
+		render()
+	end
 end
 
 local function makeTextLabel(parent, properties)
@@ -227,9 +442,23 @@ local function getPlayerGui(parentOverride)
 	return localPlayer:WaitForChild("PlayerGui")
 end
 
-local function createComponentMaid(window)
+local function createComponentMaid(window, owner)
 	local componentMaid = Maid.new()
-	window._maid:Give(componentMaid)
+	local windowTaskId = window._maid:Give(componentMaid)
+	componentMaid:Give(function()
+		window._maid:Forget(windowTaskId)
+	end)
+
+	if owner then
+		owner._componentMaids = owner._componentMaids or {}
+		owner._componentMaids[componentMaid] = true
+		componentMaid:Give(function()
+			if owner._componentMaids then
+				owner._componentMaids[componentMaid] = nil
+			end
+		end)
+	end
+
 	return componentMaid
 end
 
@@ -242,32 +471,68 @@ local function createBaseRow(section, height)
 		ZIndex = 8,
 		Parent = section._content,
 	})
-	addCorner(row, 8)
-	addStroke(row, Theme.Stroke, 0.72, 1)
-	return row
+	addCorner(row, CARD_CORNER_RADIUS)
+	local stroke = addStroke(row, Theme.Stroke, 0.78, 1)
+	local scale = create("UIScale", {
+		Scale = 1,
+		Parent = row,
+	})
+	addGradient(row, Color3.fromRGB(33, 33, 33), Color3.fromRGB(28, 28, 28), 90)
+	return row, stroke, scale
 end
 
 local SectionMethods = {}
 SectionMethods.__index = SectionMethods
 
+function SectionMethods:Destroy()
+	if self._destroyed then
+		return
+	end
+	self._destroyed = true
+
+	local componentMaids = {}
+	for componentMaid in pairs(self._componentMaids or {}) do
+		table.insert(componentMaids, componentMaid)
+	end
+	for _, componentMaid in ipairs(componentMaids) do
+		componentMaid:Cleanup()
+	end
+
+	if self._frame then
+		self._frame:Destroy()
+	end
+
+	if self._tab then
+		for index, section in ipairs(self._tab._sections) do
+			if section == self then
+				table.remove(self._tab._sections, index)
+				break
+			end
+		end
+		if self._tab._defaultSection == self then
+			self._tab._defaultSection = nil
+		end
+	end
+end
+
 function SectionMethods:CreateButton(config)
+	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
 	config = normalizeConfig(config, "Text")
-	local maid = createComponentMaid(self._window)
-	local row = createBaseRow(self, config.Description and 64 or 50)
+	local maid = createComponentMaid(self._window, self)
+	local row, stroke, rowScale = createBaseRow(self, config.Description and 66 or 52)
 
 	local button = makeTextButton(row, {
 		Name = "Button",
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Theme.Card,
+		BackgroundTransparency = 1,
 		Text = "",
 		ZIndex = 9,
 	})
-	addCorner(button, 8)
 
 	local title = makeTextLabel(button, {
 		Name = "Title",
 		Position = UDim2.fromOffset(16, config.Description and 10 or 0),
-		Size = config.Description and UDim2.new(1, -56, 0, 22) or UDim2.new(1, -56, 1, 0),
+		Size = config.Description and UDim2.new(1, -60, 0, 22) or UDim2.new(1, -60, 1, 0),
 		Font = Enum.Font.GothamMedium,
 		Text = config.Text or "Button",
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -277,8 +542,8 @@ function SectionMethods:CreateButton(config)
 
 	if config.Description then
 		makeTextLabel(button, {
-			Position = UDim2.fromOffset(16, 32),
-			Size = UDim2.new(1, -56, 0, 18),
+			Position = UDim2.fromOffset(16, 33),
+			Size = UDim2.new(1, -60, 0, 18),
 			Text = tostring(config.Description),
 			TextColor3 = Theme.Subtext,
 			TextXAlignment = Enum.TextXAlignment.Left,
@@ -288,24 +553,50 @@ function SectionMethods:CreateButton(config)
 		})
 	end
 
-	makeTextLabel(button, {
-		Position = UDim2.new(1, -42, 0.5, -10),
-		Size = UDim2.fromOffset(20, 20),
+	local arrow = makeTextLabel(button, {
+		Position = UDim2.new(1, -43, 0.5, -11),
+		Size = UDim2.fromOffset(22, 22),
 		Font = Enum.Font.GothamBold,
-		Text = ">",
+		Text = "›",
 		TextColor3 = Theme.Subtext,
-		TextSize = 16,
+		TextSize = 20,
 		ZIndex = 10,
 	})
 
-	bindHover(button, maid, Theme.Card, Theme.CardHover)
+	bindInteractiveSurface(button, maid, row, stroke, rowScale)
+
+	maid:Give(button.MouseEnter:Connect(function()
+		playTween(arrow, FAST_TWEEN_INFO, {
+			Position = UDim2.new(1, -38, 0.5, -11),
+			TextColor3 = Theme.Text,
+		})
+	end))
+	maid:Give(button.MouseLeave:Connect(function()
+		playTween(arrow, FAST_TWEEN_INFO, {
+			Position = UDim2.new(1, -43, 0.5, -11),
+			TextColor3 = Theme.Subtext,
+		})
+	end))
+
 	maid:Give(button.MouseButton1Click:Connect(function()
-		playTween(button, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.Accent })
-		local feedbackTaskId
-		feedbackTaskId = maid:Give(task.delay(0.09, function()
-			maid:Forget(feedbackTaskId)
-			if button.Parent then
-				playTween(button, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.CardHover })
+		local flash = create("Frame", {
+			Name = "ClickFlash",
+			Size = UDim2.fromScale(1, 1),
+			BackgroundColor3 = Theme.Accent,
+			BackgroundTransparency = 0.86,
+			BorderSizePixel = 0,
+			ZIndex = 9,
+			Parent = row,
+		})
+		addCorner(flash, CARD_CORNER_RADIUS)
+		local flashTween = playTween(flash, TWEEN_INFO, {
+			BackgroundTransparency = 1,
+		})
+		local completedTaskId
+		completedTaskId = maid:Give(flashTween.Completed:Connect(function()
+			maid:Remove(completedTaskId)
+			if flash.Parent then
+				flash:Destroy()
 			end
 		end))
 		safeCallback(config.Callback)
@@ -319,15 +610,16 @@ function SectionMethods:CreateButton(config)
 		safeCallback(config.Callback)
 	end
 	function api:SetVisible(visible)
-		row.Visible = visible
+		row.Visible = visible == true
 	end
-	return api
+	return attachComponentLifecycle(api, maid, row)
 end
 
 function SectionMethods:CreateToggle(config)
+	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
 	config = normalizeConfig(config, "Text")
-	local maid = createComponentMaid(self._window)
-	local row = createBaseRow(self, config.Description and 64 or 52)
+	local maid = createComponentMaid(self._window, self)
+	local row, stroke, rowScale = createBaseRow(self, config.Description and 66 or 54)
 	local value = config.Default == true
 
 	local button = makeTextButton(row, {
@@ -339,7 +631,7 @@ function SectionMethods:CreateToggle(config)
 
 	makeTextLabel(row, {
 		Position = UDim2.fromOffset(16, config.Description and 9 or 0),
-		Size = config.Description and UDim2.new(1, -90, 0, 22) or UDim2.new(1, -90, 1, 0),
+		Size = config.Description and UDim2.new(1, -96, 0, 22) or UDim2.new(1, -96, 1, 0),
 		Font = Enum.Font.GothamMedium,
 		Text = config.Text or "Toggle",
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -349,8 +641,8 @@ function SectionMethods:CreateToggle(config)
 
 	if config.Description then
 		makeTextLabel(row, {
-			Position = UDim2.fromOffset(16, 31),
-			Size = UDim2.new(1, -90, 0, 18),
+			Position = UDim2.fromOffset(16, 32),
+			Size = UDim2.new(1, -96, 0, 18),
 			Text = tostring(config.Description),
 			TextColor3 = Theme.Subtext,
 			TextXAlignment = Enum.TextXAlignment.Left,
@@ -361,14 +653,27 @@ function SectionMethods:CreateToggle(config)
 	end
 
 	local track = create("Frame", {
-		Position = UDim2.new(1, -62, 0.5, -14),
-		Size = UDim2.fromOffset(46, 28),
-		BackgroundColor3 = value and Theme.Accent or Color3.fromRGB(78, 78, 78),
+		Position = UDim2.new(1, -64, 0.5, -14),
+		Size = UDim2.fromOffset(48, 28),
+		BackgroundColor3 = value and Theme.Accent or Theme.Track,
 		BorderSizePixel = 0,
 		ZIndex = 10,
 		Parent = row,
 	})
 	addCorner(track, 14)
+	local trackStroke = addStroke(track, value and Theme.AccentHover or Theme.Stroke, 0.72, 1)
+
+	local knobShadow = create("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = value and UDim2.new(1, -14, 0.5, 1) or UDim2.new(0, 14, 0.5, 1),
+		Size = UDim2.fromOffset(22, 22),
+		BackgroundColor3 = Theme.Shadow,
+		BackgroundTransparency = 0.72,
+		BorderSizePixel = 0,
+		ZIndex = 10,
+		Parent = track,
+	})
+	addCorner(knobShadow, 11)
 
 	local knob = create("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -382,13 +687,32 @@ function SectionMethods:CreateToggle(config)
 	addCorner(knob, 10)
 
 	local function render(animated)
-		local info = animated and TWEEN_INFO or TweenInfo.new(0)
-		playTween(track, info, {
-			BackgroundColor3 = value and Theme.Accent or Color3.fromRGB(78, 78, 78),
+		local info = animated and POP_TWEEN_INFO or TweenInfo.new(0)
+		local position = value and UDim2.new(1, -14, 0.5, 0) or UDim2.new(0, 14, 0.5, 0)
+		local shadowPosition = value and UDim2.new(1, -14, 0.5, 1) or UDim2.new(0, 14, 0.5, 1)
+		playTween(track, animated and TWEEN_INFO or TweenInfo.new(0), {
+			BackgroundColor3 = value and Theme.Accent or Theme.Track,
+		})
+		playTween(trackStroke, animated and TWEEN_INFO or TweenInfo.new(0), {
+			Color = value and Theme.AccentHover or Theme.Stroke,
+			Transparency = value and 0.58 or 0.76,
 		})
 		playTween(knob, info, {
-			Position = value and UDim2.new(1, -14, 0.5, 0) or UDim2.new(0, 14, 0.5, 0),
+			Position = position,
+			Size = animated and UDim2.fromOffset(21, 21) or UDim2.fromOffset(20, 20),
 		})
+		playTween(knobShadow, info, {
+			Position = shadowPosition,
+		})
+		if animated then
+			local resetTaskId
+			resetTaskId = maid:Give(task.delay(0.16, function()
+				maid:Forget(resetTaskId)
+				if knob.Parent then
+					playTween(knob, FAST_TWEEN_INFO, { Size = UDim2.fromOffset(20, 20) })
+				end
+			end))
+		end
 	end
 
 	local function setValue(newValue, fireCallback)
@@ -403,12 +727,7 @@ function SectionMethods:CreateToggle(config)
 		end
 	end
 
-	maid:Give(button.MouseEnter:Connect(function()
-		playTween(row, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.CardHover })
-	end))
-	maid:Give(button.MouseLeave:Connect(function()
-		playTween(row, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.Card })
-	end))
+	bindInteractiveSurface(button, maid, row, stroke, rowScale)
 	maid:Give(button.MouseButton1Click:Connect(function()
 		setValue(not value, true)
 	end))
@@ -421,15 +740,16 @@ function SectionMethods:CreateToggle(config)
 		return value
 	end
 	function api:SetVisible(visible)
-		row.Visible = visible
+		row.Visible = visible == true
 	end
-	return api
+	return attachComponentLifecycle(api, maid, row)
 end
 
 function SectionMethods:CreateSlider(config)
+	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
 	config = normalizeConfig(config, "Text")
-	local maid = createComponentMaid(self._window)
-	local row = createBaseRow(self, 76)
+	local maid = createComponentMaid(self._window, self)
+	local row, stroke, rowScale = createBaseRow(self, 78)
 
 	local minimum = tonumber(config.Min) or 0
 	local maximum = tonumber(config.Max) or 100
@@ -448,6 +768,7 @@ function SectionMethods:CreateSlider(config)
 	local value = math.clamp(tonumber(config.Default) or minimum, minimum, maximum)
 	local dragging = false
 	local dragInput = nil
+	local rowHovered = false
 
 	makeTextLabel(row, {
 		Position = UDim2.fromOffset(16, 8),
@@ -473,7 +794,7 @@ function SectionMethods:CreateSlider(config)
 	local track = create("Frame", {
 		Position = UDim2.new(0, 16, 1, -29),
 		Size = UDim2.new(1, -32, 0, 6),
-		BackgroundColor3 = Color3.fromRGB(77, 77, 77),
+		BackgroundColor3 = Theme.Track,
 		BorderSizePixel = 0,
 		Active = true,
 		ZIndex = 10,
@@ -500,7 +821,7 @@ function SectionMethods:CreateSlider(config)
 		Parent = track,
 	})
 	addCorner(knob, 8)
-	addStroke(knob, Theme.Shadow, 0.65, 1)
+	addStroke(knob, Theme.Shadow, 0.7, 1)
 
 	local function roundToIncrement(rawValue)
 		local steps = math.floor(((rawValue - minimum) / increment) + 0.5)
@@ -568,6 +889,32 @@ function SectionMethods:CreateSlider(config)
 			dragging = false
 			dragInput = nil
 			playTween(knob, FAST_TWEEN_INFO, { Size = UDim2.fromOffset(16, 16) })
+			if not rowHovered then
+				playTween(row, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.Card })
+				playTween(stroke, FAST_TWEEN_INFO, {
+					Color = Theme.Stroke,
+					Transparency = 0.78,
+				})
+			end
+		end
+	end))
+
+	maid:Give(row.MouseEnter:Connect(function()
+		rowHovered = true
+		playTween(row, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.CardHover })
+		playTween(stroke, FAST_TWEEN_INFO, {
+			Color = Theme.AccentSoft,
+			Transparency = 0.46,
+		})
+	end))
+	maid:Give(row.MouseLeave:Connect(function()
+		rowHovered = false
+		if not dragging then
+			playTween(row, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.Card })
+			playTween(stroke, FAST_TWEEN_INFO, {
+				Color = Theme.Stroke,
+				Transparency = 0.78,
+			})
 		end
 	end))
 
@@ -581,14 +928,18 @@ function SectionMethods:CreateSlider(config)
 		return value
 	end
 	function api:SetVisible(visible)
-		row.Visible = visible
+		row.Visible = visible == true
 	end
-	return api
+	return attachComponentLifecycle(api, maid, row, function()
+		dragging = false
+		dragInput = nil
+	end)
 end
 
 function SectionMethods:CreateDropdown(config)
+	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
 	config = normalizeConfig(config, "Text")
-	local maid = createComponentMaid(self._window)
+	local maid = createComponentMaid(self._window, self)
 	local optionsMaid = Maid.new()
 	local optionsMaidTaskId = maid:Give(optionsMaid)
 
@@ -596,8 +947,8 @@ function SectionMethods:CreateDropdown(config)
 	local value = config.Default
 	local opened = false
 	local collapsedHeight = 58
-	local row = createBaseRow(self, collapsedHeight)
-	row.ClipsDescendants = true
+	local row, rowStroke, rowScale = createBaseRow(self, collapsedHeight)
+	row.ClipsDescendants = false
 
 	makeTextLabel(row, {
 		Position = UDim2.fromOffset(16, 0),
@@ -616,8 +967,8 @@ function SectionMethods:CreateDropdown(config)
 		Text = "",
 		ZIndex = 11,
 	})
-	addCorner(selector, 7)
-	local selectorStroke = addStroke(selector, Theme.Stroke, 0.55, 1)
+	addCorner(selector, CONTROL_CORNER_RADIUS)
+	local selectorStroke = addStroke(selector, Theme.Stroke, 0.68, 1)
 
 	local selectedLabel = makeTextLabel(selector, {
 		Position = UDim2.fromOffset(12, 0),
@@ -634,7 +985,7 @@ function SectionMethods:CreateDropdown(config)
 		Position = UDim2.new(1, -32, 0, 0),
 		Size = UDim2.fromOffset(24, 38),
 		Font = Enum.Font.GothamBold,
-		Text = "v",
+		Text = "⌄",
 		TextColor3 = Theme.Subtext,
 		TextSize = 13,
 		ZIndex = 12,
@@ -647,6 +998,7 @@ function SectionMethods:CreateDropdown(config)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ScrollBarImageColor3 = Theme.Subtext,
+		ScrollBarImageTransparency = 0.45,
 		ScrollBarThickness = 3,
 		CanvasSize = UDim2.new(),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
@@ -673,10 +1025,20 @@ function SectionMethods:CreateDropdown(config)
 		local targetHeight = opened and getExpandedHeight() or collapsedHeight
 		local holderHeight = opened and (targetHeight - collapsedHeight - 10) or 0
 
-		playTween(row, TWEEN_INFO, { Size = UDim2.new(1, 0, 0, targetHeight) })
+		playTween(row, POP_TWEEN_INFO, { Size = UDim2.new(1, 0, 0, targetHeight) })
 		playTween(optionsHolder, TWEEN_INFO, { Size = UDim2.new(1, -24, 0, holderHeight) })
-		playTween(arrow, TWEEN_INFO, { Rotation = opened and 180 or 0 })
-		selectorStroke.Color = opened and Theme.Accent or Theme.Stroke
+		playTween(arrow, TWEEN_INFO, {
+			Rotation = opened and 180 or 0,
+			TextColor3 = opened and Theme.Text or Theme.Subtext,
+		})
+		playTween(selectorStroke, FAST_TWEEN_INFO, {
+			Color = opened and Theme.Accent or Theme.Stroke,
+			Transparency = opened and 0.3 or 0.68,
+		})
+		playTween(rowStroke, FAST_TWEEN_INFO, {
+			Color = opened and Theme.AccentSoft or Theme.Stroke,
+			Transparency = opened and 0.48 or 0.78,
+		})
 	end
 
 	local function setValue(newValue, fireCallback)
@@ -728,8 +1090,14 @@ function SectionMethods:CreateDropdown(config)
 					PaddingRight = UDim.new(0, 12),
 					Parent = optionButton,
 				})
-				addCorner(optionButton, 7)
-				bindHover(optionButton, optionsMaid, Theme.Input, Theme.CardHover)
+				addCorner(optionButton, CONTROL_CORNER_RADIUS)
+				local optionStroke = addStroke(optionButton, Theme.Stroke, 0.82, 1)
+				bindInteractiveSurface(optionButton, optionsMaid, optionButton, optionStroke, nil, {
+					NormalColor = Theme.Input,
+					HoverColor = Theme.InputHover,
+					StrokeTransparency = 0.82,
+					HoverStrokeTransparency = 0.55,
+				})
 				optionsMaid:Give(optionButton.MouseButton1Click:Connect(function()
 					setValue(optionValue, true)
 					setOpened(false)
@@ -742,7 +1110,12 @@ function SectionMethods:CreateDropdown(config)
 		end
 	end
 
-	bindHover(selector, maid, Theme.Input, Theme.CardHover)
+	bindInteractiveSurface(selector, maid, selector, selectorStroke, nil, {
+		NormalColor = Theme.Input,
+		HoverColor = Theme.InputHover,
+		StrokeTransparency = 0.68,
+		HoverStrokeTransparency = 0.42,
+	})
 	maid:Give(selector.MouseButton1Click:Connect(function()
 		setOpened(not opened)
 	end))
@@ -767,15 +1140,17 @@ function SectionMethods:CreateDropdown(config)
 		setOpened(isOpen)
 	end
 	function api:SetVisible(visible)
-		row.Visible = visible
+		row.Visible = visible == true
 	end
-	return api
+	return attachComponentLifecycle(api, maid, row)
 end
 
 function SectionMethods:CreateInput(config)
+	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
 	config = normalizeConfig(config, "Text")
-	local maid = createComponentMaid(self._window)
-	local row = createBaseRow(self, 66)
+	local maid = createComponentMaid(self._window, self)
+	local row, rowStroke, rowScale = createBaseRow(self, 68)
+	local focused = false
 
 	makeTextLabel(row, {
 		Position = UDim2.fromOffset(16, 0),
@@ -809,17 +1184,46 @@ function SectionMethods:CreateInput(config)
 		PaddingRight = UDim.new(0, 12),
 		Parent = textBox,
 	})
-	addCorner(textBox, 7)
-	local stroke = addStroke(textBox, Theme.Stroke, 0.55, 1)
+	addCorner(textBox, CONTROL_CORNER_RADIUS)
+	local inputStroke = addStroke(textBox, Theme.Stroke, 0.68, 1)
+
+	maid:Give(textBox.MouseEnter:Connect(function()
+		if not focused then
+			playTween(textBox, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.InputHover })
+			playTween(inputStroke, FAST_TWEEN_INFO, { Transparency = 0.48 })
+		end
+	end))
+	maid:Give(textBox.MouseLeave:Connect(function()
+		if not focused then
+			playTween(textBox, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.Input })
+			playTween(inputStroke, FAST_TWEEN_INFO, { Transparency = 0.68 })
+		end
+	end))
 
 	maid:Give(textBox.Focused:Connect(function()
-		playTween(textBox, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.CardHover })
-		stroke.Color = Theme.Accent
+		focused = true
+		playTween(textBox, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.InputHover })
+		playTween(inputStroke, FAST_TWEEN_INFO, {
+			Color = Theme.Accent,
+			Transparency = 0.2,
+		})
+		playTween(rowStroke, FAST_TWEEN_INFO, {
+			Color = Theme.AccentSoft,
+			Transparency = 0.5,
+		})
 	end))
 
 	maid:Give(textBox.FocusLost:Connect(function(enterPressed)
+		focused = false
 		playTween(textBox, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.Input })
-		stroke.Color = Theme.Stroke
+		playTween(inputStroke, FAST_TWEEN_INFO, {
+			Color = Theme.Stroke,
+			Transparency = 0.68,
+		})
+		playTween(rowStroke, FAST_TWEEN_INFO, {
+			Color = Theme.Stroke,
+			Transparency = 0.78,
+		})
 		safeCallback(config.Callback, textBox.Text, enterPressed)
 	end))
 
@@ -843,13 +1247,15 @@ function SectionMethods:CreateInput(config)
 		textBox:CaptureFocus()
 	end
 	function api:SetVisible(visible)
-		row.Visible = visible
+		row.Visible = visible == true
 	end
-	return api
+	return attachComponentLifecycle(api, maid, row)
 end
 
 function SectionMethods:CreateLabel(config)
+	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
 	config = normalizeConfig(config, "Text")
+	local maid = createComponentMaid(self._window, self)
 	local row = create("Frame", {
 		Name = "Label",
 		Size = UDim2.new(1, 0, 0, 0),
@@ -859,7 +1265,7 @@ function SectionMethods:CreateLabel(config)
 		ZIndex = 8,
 		Parent = self._content,
 	})
-	addCorner(row, 8)
+	addCorner(row, CARD_CORNER_RADIUS)
 	addStroke(row, Theme.Stroke, 0.72, 1)
 	create("UIPadding", {
 		PaddingTop = UDim.new(0, 12),
@@ -890,13 +1296,15 @@ function SectionMethods:CreateLabel(config)
 		label.TextColor3 = color
 	end
 	function api:SetVisible(visible)
-		row.Visible = visible
+		row.Visible = visible == true
 	end
-	return api
+	return attachComponentLifecycle(api, maid, row)
 end
 
 function SectionMethods:CreateParagraph(config)
+	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
 	config = normalizeConfig(config, "Content")
+	local maid = createComponentMaid(self._window, self)
 	local row = create("Frame", {
 		Name = "Paragraph",
 		Size = UDim2.new(1, 0, 0, 0),
@@ -906,7 +1314,7 @@ function SectionMethods:CreateParagraph(config)
 		ZIndex = 8,
 		Parent = self._content,
 	})
-	addCorner(row, 8)
+	addCorner(row, CARD_CORNER_RADIUS)
 	addStroke(row, Theme.Stroke, 0.72, 1)
 	create("UIPadding", {
 		PaddingTop = UDim.new(0, 13),
@@ -958,9 +1366,226 @@ function SectionMethods:CreateParagraph(config)
 		content.Text = tostring(text)
 	end
 	function api:SetVisible(visible)
-		row.Visible = visible
+		row.Visible = visible == true
 	end
-	return api
+	return attachComponentLifecycle(api, maid, row)
+end
+
+function SectionMethods:CreateKeybindPicker(config)
+	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
+	config = normalizeConfig(config, "Text")
+	local window = self._window
+	local maid = createComponentMaid(window, self)
+	local rowHeight = config.Description and 72 or 58
+	local row, rowStroke, rowScale = createBaseRow(self, rowHeight)
+	local listening = false
+	local bindToWindow = config.BindToWindow ~= false
+	local value
+
+	if config.Default ~= nil then
+		value = normalizeKeyCode(config.Default)
+	elseif bindToWindow then
+		value = window:GetKeybind()
+	else
+		value = nil
+	end
+
+	makeTextLabel(row, {
+		Position = UDim2.fromOffset(16, config.Description and 9 or 0),
+		Size = config.Description and UDim2.new(0.56, -16, 0, 22) or UDim2.new(0.56, -16, 1, 0),
+		Font = Enum.Font.GothamMedium,
+		Text = config.Text or "Atalho do menu",
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 14,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 10,
+	})
+
+	if config.Description then
+		makeTextLabel(row, {
+			Position = UDim2.fromOffset(16, 32),
+			Size = UDim2.new(0.56, -16, 0, 28),
+			Text = tostring(config.Description),
+			TextColor3 = Theme.Subtext,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextYAlignment = Enum.TextYAlignment.Top,
+			TextSize = 11,
+			TextWrapped = true,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			ZIndex = 10,
+		})
+	end
+
+	local pickerButton = makeTextButton(row, {
+		Position = UDim2.new(0.56, 0, 0.5, -19),
+		Size = UDim2.new(0.44, -16, 0, 38),
+		BackgroundColor3 = Theme.Input,
+		Text = "",
+		TextSize = 13,
+		ZIndex = 11,
+	})
+	addCorner(pickerButton, CONTROL_CORNER_RADIUS)
+	local pickerStroke = addStroke(pickerButton, Theme.Stroke, 0.68, 1)
+
+	local pickerLabel = makeTextLabel(pickerButton, {
+		Size = UDim2.fromScale(1, 1),
+		Font = Enum.Font.GothamBold,
+		Text = "",
+		TextColor3 = Theme.Text,
+		TextSize = 12,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 12,
+	})
+
+	local api = {}
+
+	local function render()
+		if listening then
+			pickerLabel.Text = "[ ... ]"
+			playTween(pickerLabel, FAST_TWEEN_INFO, { TextColor3 = Theme.AccentHover })
+			playTween(pickerStroke, FAST_TWEEN_INFO, {
+				Color = Theme.Accent,
+				Transparency = 0.18,
+			})
+			playTween(rowStroke, FAST_TWEEN_INFO, {
+				Color = Theme.AccentSoft,
+				Transparency = 0.42,
+			})
+		else
+			pickerLabel.Text = "[ " .. getKeyCodeDisplayName(value) .. " ]"
+			playTween(pickerLabel, FAST_TWEEN_INFO, {
+				TextColor3 = value and Theme.Text or Theme.Subtext,
+			})
+			playTween(pickerStroke, FAST_TWEEN_INFO, {
+				Color = Theme.Stroke,
+				Transparency = 0.68,
+			})
+			playTween(rowStroke, FAST_TWEEN_INFO, {
+				Color = Theme.Stroke,
+				Transparency = 0.78,
+			})
+		end
+	end
+
+	local function stopListening()
+		if not listening then
+			return
+		end
+		listening = false
+		if window._activeKeybindPicker == api then
+			window._activeKeybindPicker = nil
+		end
+		render()
+	end
+
+	local function setValue(newValue, fireCallback)
+		newValue = normalizeKeyCode(newValue)
+		value = newValue
+
+		if bindToWindow then
+			window:SetKeybind(newValue)
+		else
+			render()
+		end
+
+		if fireCallback ~= false then
+			safeCallback(config.Callback, value)
+		end
+	end
+
+	function api:BeginListening()
+		if window._activeKeybindPicker and window._activeKeybindPicker ~= api then
+			window._activeKeybindPicker:CancelListening()
+		end
+		listening = true
+		window._activeKeybindPicker = api
+		render()
+	end
+
+	function api:CancelListening()
+		stopListening()
+	end
+
+	function api:SetKeybind(newValue, fireCallback)
+		stopListening()
+		setValue(newValue, fireCallback)
+	end
+
+	function api:GetKeybind()
+		return value
+	end
+
+	function api:SetVisible(visible)
+		row.Visible = visible == true
+	end
+
+	bindInteractiveSurface(pickerButton, maid, pickerButton, pickerStroke, nil, {
+		NormalColor = Theme.Input,
+		HoverColor = Theme.InputHover,
+		StrokeTransparency = 0.68,
+		HoverStrokeTransparency = 0.42,
+	})
+	maid:Give(pickerButton.MouseButton1Click:Connect(function()
+		if listening then
+			stopListening()
+		else
+			api:BeginListening()
+		end
+	end))
+
+	maid:Give(UserInputService.InputBegan:Connect(function(input)
+		if not listening or input.UserInputType ~= Enum.UserInputType.Keyboard then
+			return
+		end
+
+		if input.KeyCode == Enum.KeyCode.Unknown then
+			return
+		end
+
+		window._capturedKeybindInput = input
+		local capturedInput = input
+		local clearCaptureTaskId
+		clearCaptureTaskId = maid:Give(task.defer(function()
+			maid:Forget(clearCaptureTaskId)
+			if window._capturedKeybindInput == capturedInput then
+				window._capturedKeybindInput = nil
+			end
+		end))
+
+		local capturedKey = input.KeyCode
+		if capturedKey == Enum.KeyCode.Backspace or capturedKey == Enum.KeyCode.Delete then
+			capturedKey = nil
+		end
+
+		stopListening()
+		setValue(capturedKey, true)
+	end))
+
+	local listenerToken = {}
+	window._keybindListeners[listenerToken] = function(newKeybind)
+		if bindToWindow then
+			value = newKeybind
+			render()
+		end
+	end
+
+	maid:Give(function()
+		window._keybindListeners[listenerToken] = nil
+		if window._activeKeybindPicker == api then
+			window._activeKeybindPicker = nil
+		end
+		if window._settingsKeybindPicker == api then
+			window._settingsKeybindPicker = nil
+		end
+	end)
+
+	if bindToWindow and config.Default ~= nil then
+		window:SetKeybind(value)
+	else
+		render()
+	end
+
+	return attachComponentLifecycle(api, maid, row, stopListening)
 end
 
 local TabMethods = {}
@@ -970,25 +1595,75 @@ function TabMethods:Select()
 	self._window:SelectTab(self)
 end
 
+function TabMethods:Destroy()
+	if self._destroyed then
+		return
+	end
+	self._destroyed = true
+
+	local sections = table.clone(self._sections)
+	for _, section in ipairs(sections) do
+		section:Destroy()
+	end
+
+	local window = self._window
+	for index, tab in ipairs(window._tabs) do
+		if tab == self then
+			table.remove(window._tabs, index)
+			break
+		end
+	end
+
+	local wasCurrent = window._currentTab == self
+	if wasCurrent then
+		window._currentTab = nil
+	end
+
+	if window._settingsTab == self then
+		window._settingsTab = nil
+		window._settingsKeybindPicker = nil
+	end
+
+	self._maid:Cleanup()
+
+	if wasCurrent then
+		for _, candidate in ipairs(window._tabs) do
+			if not candidate._destroyed and not candidate._isSettings then
+				window:SelectTab(candidate)
+				return
+			end
+		end
+		for _, candidate in ipairs(window._tabs) do
+			if not candidate._destroyed then
+				window:SelectTab(candidate)
+				return
+			end
+		end
+		window._currentTabLabel.Text = ""
+	end
+end
+
 function TabMethods:CreateSection(name)
+	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A tab ou janela já foi destruída.")
 	local sectionFrame = create("Frame", {
 		Name = "Section",
 		Size = UDim2.new(1, 0, 0, 0),
 		AutomaticSize = Enum.AutomaticSize.Y,
-		BackgroundColor3 = Theme.Sidebar,
+		BackgroundColor3 = Theme.Panel,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 		ZIndex = 6,
-		Parent = self._page,
+		Parent = self._scroll,
 	})
-	addCorner(sectionFrame, 10)
-	addStroke(sectionFrame, Theme.Stroke, 0.72, 1)
+	addCorner(sectionFrame, PANEL_CORNER_RADIUS)
+	addStroke(sectionFrame, Theme.Stroke, 0.8, 1)
+	addGradient(sectionFrame, Color3.fromRGB(27, 27, 27), Color3.fromRGB(22, 22, 22), 90)
 
 	local padding = create("UIPadding", {
-		PaddingTop = UDim.new(0, 12),
-		PaddingBottom = UDim.new(0, 12),
-		PaddingLeft = UDim.new(0, 12),
-		PaddingRight = UDim.new(0, 12),
+		PaddingTop = UDim.new(0, 13),
+		PaddingBottom = UDim.new(0, 13),
+		PaddingLeft = UDim.new(0, 13),
+		PaddingRight = UDim.new(0, 13),
 		Parent = sectionFrame,
 	})
 
@@ -1019,6 +1694,8 @@ function TabMethods:CreateSection(name)
 		_content = sectionFrame,
 		_padding = padding,
 		_layout = layout,
+		_componentMaids = {},
+		_destroyed = false,
 	}, SectionMethods)
 
 	table.insert(self._sections, section)
@@ -1040,6 +1717,7 @@ for _, methodName in ipairs({
 	"CreateInput",
 	"CreateLabel",
 	"CreateParagraph",
+	"CreateKeybindPicker",
 }) do
 	TabMethods[methodName] = function(self, config)
 		return self:_getDefaultSection()[methodName](self:_getDefaultSection(), config)
@@ -1049,10 +1727,125 @@ end
 local WindowMethods = {}
 WindowMethods.__index = WindowMethods
 
+function WindowMethods:SetKeybind(keyCode)
+	local normalized = normalizeKeyCode(keyCode)
+	if keyCode ~= nil and keyCode ~= false and keyCode ~= Enum.KeyCode.Unknown and normalized == nil then
+		warn("[SpotifyUI] Keybind inválido:", keyCode)
+		return self
+	end
+
+	self._keybind = normalized
+	for _, listener in pairs(self._keybindListeners) do
+		local ok, err = pcall(listener, normalized)
+		if not ok then
+			warn("[SpotifyUI] Erro ao atualizar Keybind Picker:", err)
+		end
+	end
+
+	return self
+end
+
+function WindowMethods:GetKeybind()
+	return self._keybind
+end
+
+function WindowMethods:GetSettingsTab()
+	return self._settingsTab
+end
+
+function WindowMethods:SetGameInfo(config)
+	config = config or {}
+	if config.Name ~= nil and self._gameNameLabel then
+		self._gameNameLabel.Text = tostring(config.Name)
+	end
+	if config.Creator ~= nil and self._gameCreatorLabel then
+		self._gameCreatorLabel.Text = tostring(config.Creator)
+	end
+	if config.Icon ~= nil and self._gameIcon then
+		self._gameIcon.Image = tostring(config.Icon)
+	end
+	return self
+end
+
+function WindowMethods:SetNowPlayingVisible(visible)
+	self._nowPlayingVisible = visible == true
+	self._nowPlaying.Visible = self._nowPlayingVisible
+	self:_updateResponsiveScale()
+	return self
+end
+
+function WindowMethods:_clampToViewport(viewport, effectiveScale)
+	local scaledSize = self._baseSize * effectiveScale
+	local halfSize = scaledSize / 2
+	local position = self._main.Position
+	local center = Vector2.new(
+		viewport.X * position.X.Scale + position.X.Offset,
+		viewport.Y * position.Y.Scale + position.Y.Offset
+	)
+
+	local minimumX = math.min(halfSize.X + 6, viewport.X / 2)
+	local maximumX = math.max(viewport.X - halfSize.X - 6, viewport.X / 2)
+	local minimumY = math.min(halfSize.Y + 6, viewport.Y / 2)
+	local maximumY = math.max(viewport.Y - halfSize.Y - 6, viewport.Y / 2)
+
+	center = Vector2.new(math.clamp(center.X, minimumX, maximumX), math.clamp(center.Y, minimumY, maximumY))
+
+	self._main.Position = UDim2.fromScale(center.X / math.max(viewport.X, 1), center.Y / math.max(viewport.Y, 1))
+end
+
+function WindowMethods:_syncWindowLayers()
+	if self._destroyed then
+		return
+	end
+
+	local position = self._main.Position
+	local size = self._main.Size
+
+	self._outline.Position = position
+	self._outline.Size = UDim2.new(size.X.Scale, size.X.Offset + 2, size.Y.Scale, size.Y.Offset + 2)
+
+	self._shadow.Position = UDim2.new(position.X.Scale, position.X.Offset, position.Y.Scale, position.Y.Offset + 10)
+	self._shadow.Size = UDim2.new(size.X.Scale, size.X.Offset + 18, size.Y.Scale, size.Y.Offset + 18)
+end
+
+function WindowMethods:_cancelVisibilityTweens()
+	if self._visibilityConnection then
+		self._visibilityConnection:Disconnect()
+		self._visibilityConnection = nil
+	end
+
+	for _, tween in pairs(self._visibilityTweens or {}) do
+		tween:Cancel()
+	end
+	self._visibilityTweens = {}
+	self._visibilityAnimating = false
+end
+
+function WindowMethods:_setLayerVisibility(visible)
+	self._main.Visible = visible
+	self._outline.Visible = visible
+	self._shadow.Visible = visible
+	self._notificationContainer.Visible = visible
+end
+
+function WindowMethods:_cancelResponsiveTweens()
+	for _, tweenKey in ipairs({
+		"_responsiveMainTween",
+		"_responsiveOutlineTween",
+		"_responsiveShadowTween",
+	}) do
+		local tween = self[tweenKey]
+		if tween then
+			tween:Cancel()
+			self[tweenKey] = nil
+		end
+	end
+end
+
 function WindowMethods:SetScale(scale)
 	self._userScale = math.clamp(tonumber(scale) or 1, self._minScale, self._maxScale)
 	self._scaleLabel.Text = string.format("%d%%", math.floor(self._userScale * 100 + 0.5))
-	self:_updateResponsiveScale()
+	self:_updateResponsiveScale(true)
 	return self
 end
 
@@ -1061,12 +1854,12 @@ function WindowMethods:GetScale()
 end
 
 function WindowMethods:GetEffectiveScale()
-	return self._uiScale.Scale
+	return self._effectiveScale or self._uiScale.Scale
 end
 
 function WindowMethods:SetAutoScale(enabled)
 	self._autoScale = enabled == true
-	self:_updateResponsiveScale()
+	self:_updateResponsiveScale(true)
 	return self
 end
 
@@ -1080,7 +1873,8 @@ function WindowMethods:SetSize(width, height)
 
 	self._baseSize = Vector2.new(math.clamp(newSize.X, 720, 1280), math.clamp(newSize.Y, 460, 820))
 	self._main.Size = UDim2.fromOffset(self._baseSize.X, self._baseSize.Y)
-	self:_updateResponsiveScale()
+	self:_syncWindowLayers()
+	self:_updateResponsiveScale(true)
 	return self
 end
 
@@ -1096,21 +1890,105 @@ function WindowMethods:SetTitle(title, subtitle)
 	return self
 end
 
-function WindowMethods:SetVisible(visible)
+function WindowMethods:SetVisible(visible, instant)
+	if self._destroyed then
+		return self
+	end
+
 	local isVisible = visible == true
-	self._main.Visible = isVisible
-	self._shadow.Visible = isVisible
+	if self._visible == isVisible and not self._visibilityAnimating then
+		return self
+	end
+	self._visible = isVisible
+	self:_cancelVisibilityTweens()
+	self:_cancelResponsiveTweens()
+
+	if not isVisible and self._activeKeybindPicker then
+		self._activeKeybindPicker:CancelListening()
+	end
+
+	local targetScale = self._effectiveScale or self._uiScale.Scale
+	local animationsEnabled = self._animationsEnabled and instant ~= true
+
+	if not animationsEnabled then
+		self:_setLayerVisibility(isVisible)
+		self._main.GroupTransparency = isVisible and 0 or 1
+		self._outline.BackgroundTransparency = isVisible and WINDOW_OUTLINE_TRANSPARENCY or 1
+		self._shadow.BackgroundTransparency = isVisible and WINDOW_SHADOW_TRANSPARENCY or 1
+		self._uiScale.Scale = targetScale
+		self._outlineScale.Scale = targetScale
+		self._shadowScale.Scale = targetScale
+		return self
+	end
+
+	self._visibilityAnimating = true
+	self:_setLayerVisibility(true)
+
+	local scaleFrom = targetScale * 0.965
+	local scaleTo = targetScale
+
+	if isVisible then
+		self._main.GroupTransparency = 1
+		self._outline.BackgroundTransparency = 1
+		self._shadow.BackgroundTransparency = 1
+		self._uiScale.Scale = scaleFrom
+		self._outlineScale.Scale = scaleFrom
+		self._shadowScale.Scale = scaleFrom
+	else
+		scaleFrom = self._uiScale.Scale
+		scaleTo = targetScale * 0.965
+	end
+
+	local groupTween = playTween(self._main, FADE_TWEEN_INFO, {
+		GroupTransparency = isVisible and 0 or 1,
+	})
+	local outlineTween = playTween(self._outline, FADE_TWEEN_INFO, {
+		BackgroundTransparency = isVisible and WINDOW_OUTLINE_TRANSPARENCY or 1,
+	})
+	local shadowTween = playTween(self._shadow, FADE_TWEEN_INFO, {
+		BackgroundTransparency = isVisible and WINDOW_SHADOW_TRANSPARENCY or 1,
+	})
+	local mainScaleTween = playTween(self._uiScale, POP_TWEEN_INFO, { Scale = scaleTo })
+	local outlineScaleTween = playTween(self._outlineScale, POP_TWEEN_INFO, { Scale = scaleTo })
+	local shadowScaleTween = playTween(self._shadowScale, POP_TWEEN_INFO, { Scale = scaleTo })
+
+	self._visibilityTweens = {
+		groupTween,
+		outlineTween,
+		shadowTween,
+		mainScaleTween,
+		outlineScaleTween,
+		shadowScaleTween,
+	}
+
+	self._visibilityConnection = groupTween.Completed:Connect(function()
+		self._visibilityConnection = nil
+		self._visibilityAnimating = false
+		self._visibilityTweens = {}
+
+		if self._destroyed then
+			return
+		end
+
+		if not self._visible then
+			self:_setLayerVisibility(false)
+		else
+			self._uiScale.Scale = targetScale
+			self._outlineScale.Scale = targetScale
+			self._shadowScale.Scale = targetScale
+		end
+	end)
+
 	return self
 end
 
 function WindowMethods:ToggleVisible()
-	local isVisible = not self._main.Visible
-	self._main.Visible = isVisible
-	self._shadow.Visible = isVisible
+	local isVisible = not self._visible
+	self:SetVisible(isVisible)
 	return isVisible
 end
 
-function WindowMethods:_updateResponsiveScale()
+function WindowMethods:_updateResponsiveScale(animated)
 	if self._destroyed then
 		return
 	end
@@ -1123,15 +2001,60 @@ function WindowMethods:_updateResponsiveScale()
 	local fitScale = math.min(fitX, fitY, self._maxAutoScale)
 	local effectiveScale = self._autoScale and math.min(self._userScale, fitScale) or self._userScale
 	effectiveScale = math.clamp(effectiveScale, 0.25, self._maxScale)
+	self._effectiveScale = effectiveScale
 
-	self._uiScale.Scale = effectiveScale
+	if not self._visibilityAnimating then
+		if animated and self._animationsEnabled and self._visible then
+			replaceTween(
+				self,
+				"_responsiveMainTween",
+				playTween(self._uiScale, TWEEN_INFO, {
+					Scale = effectiveScale,
+				})
+			)
+			replaceTween(
+				self,
+				"_responsiveOutlineTween",
+				playTween(self._outlineScale, TWEEN_INFO, {
+					Scale = effectiveScale,
+				})
+			)
+			replaceTween(
+				self,
+				"_responsiveShadowTween",
+				playTween(self._shadowScale, TWEEN_INFO, {
+					Scale = effectiveScale,
+				})
+			)
+		else
+			self._uiScale.Scale = effectiveScale
+			self._outlineScale.Scale = effectiveScale
+			self._shadowScale.Scale = effectiveScale
+		end
+	end
 	self._notificationScale.Scale = effectiveScale
 
-	local compact = viewport.X < 700
-	local sidebarWidth = compact and 178 or math.clamp(self._baseSize.X * 0.235, 200, 230)
-	self._sidebar.Size = UDim2.new(0, sidebarWidth, 1, 0)
+	local logicalViewportWidth = viewport.X / math.max(effectiveScale, 0.01)
+	local compact = logicalViewportWidth < 820
+	local sidebarWidth = compact and 184 or math.clamp(self._baseSize.X * 0.225, 198, 224)
+	local nowPlayingHeight = self._nowPlayingVisible and NOW_PLAYING_HEIGHT or 0
+
+	self._sidebar.Size = UDim2.new(0, sidebarWidth, 1, -nowPlayingHeight)
 	self._content.Position = UDim2.fromOffset(sidebarWidth, 0)
-	self._content.Size = UDim2.new(1, -sidebarWidth, 1, 0)
+	self._content.Size = UDim2.new(1, -sidebarWidth, 1, -nowPlayingHeight)
+	self._nowPlaying.Position = UDim2.new(0, 0, 1, -nowPlayingHeight)
+	self._nowPlaying.Size = UDim2.new(1, 0, 0, nowPlayingHeight)
+	self._sidebarDivider.Position = UDim2.fromOffset(sidebarWidth - 1, 0)
+	self._sidebarDivider.Size = UDim2.new(0, 1, 1, -nowPlayingHeight)
+
+	local showGameStatus = self._nowPlayingVisible and logicalViewportWidth >= 790
+	self._gameStatus.Visible = showGameStatus
+	local gameTextRightPadding = showGameStatus and 270 or 108
+	self._gameNameLabel.Size = UDim2.new(1, -gameTextRightPadding, 0, 25)
+	self._gameCreatorLabel.Size = UDim2.new(1, -gameTextRightPadding, 0, 20)
+
+	self:_syncWindowLayers()
+	self:_clampToViewport(viewport, effectiveScale)
 end
 
 function WindowMethods:_bindCurrentCamera()
@@ -1148,35 +2071,80 @@ function WindowMethods:_bindCurrentCamera()
 	self:_updateResponsiveScale()
 end
 
-function WindowMethods:CreateTab(name)
+function WindowMethods:CreateTab(nameOrConfig, iconOverride)
 	assert(not self._destroyed, "[SpotifyUI] A janela já foi destruída.")
-	local tabMaid = createComponentMaid(self)
-	local tabName = tostring(name or "Tab")
+	local tabConfig = normalizeTabConfig(nameOrConfig, iconOverride)
+	local tabName = tabConfig.Name
+	local isSettings = tabConfig.IsSettings == true
 
-	local tabButton = makeTextButton(self._tabsContainer, {
-		Name = "TabButton",
-		Size = UDim2.new(1, 0, 0, 44),
+	if
+		not tabConfig._Internal
+		and string.lower(tabName) == "settings"
+		and self._settingsTab
+		and not self._settingsTab._destroyed
+	then
+		return self._settingsTab
+	end
+
+	local tabMaid = createComponentMaid(self)
+	local buttonParent = isSettings and self._settingsTabsContainer or self._tabsContainer
+	local tabButton = makeTextButton(buttonParent, {
+		Name = "TabButton_" .. tabName,
+		Size = UDim2.new(1, 0, 0, 42),
 		BackgroundColor3 = Theme.Sidebar,
 		Text = "",
-		LayoutOrder = #self._tabs + 1,
+		LayoutOrder = isSettings and 1 or (#self._tabs + 1),
 		ZIndex = 6,
 	})
-	addCorner(tabButton, 7)
+	addCorner(tabButton, CONTROL_CORNER_RADIUS)
+	local tabStroke = addStroke(tabButton, Theme.Stroke, 1, 1)
+	local tabScale = create("UIScale", {
+		Scale = 1,
+		Parent = tabButton,
+	})
 
 	local indicator = create("Frame", {
-		Position = UDim2.fromOffset(0, 8),
-		Size = UDim2.fromOffset(4, 28),
+		Position = UDim2.fromOffset(0, 9),
+		Size = UDim2.fromOffset(3, 24),
 		BackgroundColor3 = Theme.Accent,
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ZIndex = 7,
+		ZIndex = 8,
 		Parent = tabButton,
 	})
 	addCorner(indicator, 2)
 
+	local tabIcon
+	local iconIsImage = isImageIcon(tabConfig.Icon)
+	if iconIsImage then
+		tabIcon = create("ImageLabel", {
+			Name = "Icon",
+			Position = UDim2.fromOffset(14, 11),
+			Size = UDim2.fromOffset(20, 20),
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Image = tostring(tabConfig.Icon),
+			ImageColor3 = tabConfig.IconColor or Theme.Subtext,
+			ScaleType = Enum.ScaleType.Fit,
+			ZIndex = 7,
+			Parent = tabButton,
+		})
+	else
+		tabIcon = makeTextLabel(tabButton, {
+			Name = "Icon",
+			Position = UDim2.fromOffset(12, 0),
+			Size = UDim2.fromOffset(24, 42),
+			Font = Enum.Font.GothamBold,
+			Text = tostring(tabConfig.Icon or "•"),
+			TextColor3 = tabConfig.IconColor or Theme.Subtext,
+			TextSize = 17,
+			ZIndex = 7,
+		})
+	end
+
 	local tabLabel = makeTextLabel(tabButton, {
-		Position = UDim2.fromOffset(15, 0),
-		Size = UDim2.new(1, -26, 1, 0),
+		Position = UDim2.fromOffset(44, 0),
+		Size = UDim2.new(1, -56, 1, 0),
 		Font = Enum.Font.GothamMedium,
 		Text = tabName,
 		TextColor3 = Theme.Subtext,
@@ -1186,31 +2154,43 @@ function WindowMethods:CreateTab(name)
 		ZIndex = 7,
 	})
 
-	local page = create("ScrollingFrame", {
+	local page = create("CanvasGroup", {
 		Name = "Page_" .. tabName,
+		Position = UDim2.fromOffset(0, 8),
 		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		GroupTransparency = 1,
+		Visible = false,
+		ZIndex = 5,
+		Parent = self._pageContainer,
+	})
+
+	local scroll = create("ScrollingFrame", {
+		Name = "Scroll",
+		Size = UDim2.new(1, -8, 1, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		CanvasSize = UDim2.new(),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ScrollBarImageColor3 = Theme.Subtext,
-		ScrollBarThickness = 4,
-		Visible = false,
+		ScrollBarImageTransparency = 0.58,
+		ScrollBarThickness = 3,
 		ZIndex = 5,
-		Parent = self._pageContainer,
+		Parent = page,
 	})
 	create("UIPadding", {
 		PaddingTop = UDim.new(0, 14),
 		PaddingBottom = UDim.new(0, 18),
 		PaddingLeft = UDim.new(0, 14),
-		PaddingRight = UDim.new(0, 14),
-		Parent = page,
+		PaddingRight = UDim.new(0, 10),
+		Parent = scroll,
 	})
 	create("UIListLayout", {
 		Padding = UDim.new(0, 12),
 		SortOrder = Enum.SortOrder.LayoutOrder,
-		Parent = page,
+		Parent = scroll,
 	})
 
 	local tab = setmetatable({
@@ -1218,16 +2198,41 @@ function WindowMethods:CreateTab(name)
 		_name = tabName,
 		_button = tabButton,
 		_indicator = indicator,
+		_icon = tabIcon,
+		_iconIsImage = iconIsImage,
+		_iconColor = tabConfig.IconColor or Theme.Subtext,
 		_label = tabLabel,
+		_stroke = tabStroke,
+		_scale = tabScale,
 		_page = page,
+		_scroll = scroll,
 		_sections = {},
 		_maid = tabMaid,
+		_isSettings = isSettings,
+		_destroyed = false,
 	}, TabMethods)
+
+	tabMaid:Give(tabButton)
+	tabMaid:Give(page)
+
+	local function setIconColor(color)
+		if tab._iconIsImage then
+			tab._icon.ImageColor3 = color
+		else
+			tab._icon.TextColor3 = color
+		end
+	end
 
 	tabMaid:Give(tabButton.MouseEnter:Connect(function()
 		if self._currentTab ~= tab then
 			playTween(tabButton, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.Card })
 			playTween(tabLabel, FAST_TWEEN_INFO, { TextColor3 = Theme.Text })
+			playTween(tabStroke, FAST_TWEEN_INFO, {
+				Color = Theme.Stroke,
+				Transparency = 0.78,
+			})
+			playTween(tabScale, FAST_TWEEN_INFO, { Scale = 1.01 })
+			setIconColor(Theme.Text)
 		end
 	end))
 
@@ -1235,15 +2240,26 @@ function WindowMethods:CreateTab(name)
 		if self._currentTab ~= tab then
 			playTween(tabButton, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.Sidebar })
 			playTween(tabLabel, FAST_TWEEN_INFO, { TextColor3 = Theme.Subtext })
+			playTween(tabStroke, FAST_TWEEN_INFO, { Transparency = 1 })
+			playTween(tabScale, FAST_TWEEN_INFO, { Scale = 1 })
+			setIconColor(tabConfig.IconColor or Theme.Subtext)
 		end
 	end))
 
+	tabMaid:Give(tabButton.MouseButton1Down:Connect(function()
+		playTween(tabScale, FAST_TWEEN_INFO, { Scale = 0.985 })
+	end))
+	tabMaid:Give(tabButton.MouseButton1Up:Connect(function()
+		playTween(tabScale, FAST_TWEEN_INFO, { Scale = self._currentTab == tab and 1 or 1.01 })
+	end))
 	tabMaid:Give(tabButton.MouseButton1Click:Connect(function()
 		self:SelectTab(tab)
 	end))
 
 	table.insert(self._tabs, tab)
-	if not self._currentTab then
+	if isSettings then
+		self._settingsTab = tab
+	elseif not self._currentTab then
 		self:SelectTab(tab)
 	end
 	return tab
@@ -1262,27 +2278,86 @@ function WindowMethods:SelectTab(tabOrName)
 		target = tabOrName
 	end
 
-	if not target or target._window ~= self then
+	if not target or target._window ~= self or target._destroyed then
 		return false
 	end
 
 	for _, tab in ipairs(self._tabs) do
-		local selected = tab == target
-		tab._page.Visible = selected
-		playTween(tab._button, FAST_TWEEN_INFO, {
-			BackgroundColor3 = selected and Theme.Card or Theme.Sidebar,
-		})
-		playTween(tab._label, FAST_TWEEN_INFO, {
-			TextColor3 = selected and Theme.Text or Theme.Subtext,
-		})
-		playTween(tab._indicator, FAST_TWEEN_INFO, {
-			BackgroundTransparency = selected and 0 or 1,
-		})
+		if not tab._destroyed then
+			local selected = tab == target
+			tab._page.Visible = selected
+
+			if selected then
+				tab._page.GroupTransparency = self._animationsEnabled and 1 or 0
+				tab._page.Position = self._animationsEnabled and UDim2.fromOffset(0, 9) or UDim2.fromOffset(0, 0)
+				if self._animationsEnabled then
+					playTween(tab._page, FADE_TWEEN_INFO, {
+						GroupTransparency = 0,
+						Position = UDim2.fromOffset(0, 0),
+					})
+				end
+			end
+
+			playTween(tab._button, FAST_TWEEN_INFO, {
+				BackgroundColor3 = selected and Theme.Selected or Theme.Sidebar,
+			})
+			playTween(tab._label, FAST_TWEEN_INFO, {
+				TextColor3 = selected and Theme.Text or Theme.Subtext,
+			})
+			playTween(tab._indicator, FAST_TWEEN_INFO, {
+				BackgroundTransparency = selected and 0 or 1,
+				Size = selected and UDim2.fromOffset(3, 24) or UDim2.fromOffset(3, 14),
+				Position = selected and UDim2.fromOffset(0, 9) or UDim2.fromOffset(0, 14),
+			})
+			playTween(tab._stroke, FAST_TWEEN_INFO, {
+				Color = selected and Theme.AccentSoft or Theme.Stroke,
+				Transparency = selected and 0.72 or 1,
+			})
+			playTween(tab._scale, FAST_TWEEN_INFO, { Scale = 1 })
+
+			if tab._iconIsImage then
+				playTween(tab._icon, FAST_TWEEN_INFO, {
+					ImageColor3 = selected and Theme.Text or tab._iconColor,
+				})
+			else
+				playTween(tab._icon, FAST_TWEEN_INFO, {
+					TextColor3 = selected and Theme.Text or tab._iconColor,
+				})
+			end
+		end
 	end
 
 	self._currentTab = target
 	self._currentTabLabel.Text = target._name
+	self._topbarAccent.Size = UDim2.fromOffset(12, 2)
+	self._topbarAccent.BackgroundTransparency = 0.72
+	playTween(self._topbarAccent, POP_TWEEN_INFO, {
+		Size = UDim2.fromOffset(34, 2),
+		BackgroundTransparency = 0.16,
+	})
 	return true
+end
+
+function WindowMethods:_createSettingsTab()
+	if self._settingsTab and not self._settingsTab._destroyed then
+		return self._settingsTab
+	end
+
+	local settingsTab = self:CreateTab({
+		Name = "Settings",
+		Icon = "⚙",
+		IsSettings = true,
+		_Internal = true,
+	})
+
+	local shortcutsSection = settingsTab:CreateSection("Interface")
+	self._settingsKeybindPicker = shortcutsSection:CreateKeybindPicker({
+		Text = "Abrir / fechar menu",
+		Description = "Clique e pressione uma tecla. Backspace ou Delete remove o atalho.",
+		BindToWindow = true,
+	})
+
+	return settingsTab
 end
 
 function WindowMethods:Notify(config)
@@ -1296,19 +2371,22 @@ function WindowMethods:Notify(config)
 	local dismissed = false
 	local duration = math.max(tonumber(config.Duration) or 4, 0.5)
 
-	local toast = create("Frame", {
+	local toast = create("CanvasGroup", {
 		Name = "Notification",
+		Position = UDim2.fromOffset(24, 0),
 		Size = UDim2.fromOffset(310, config.Title and 96 or 78),
 		BackgroundColor3 = Theme.Sidebar,
-		BackgroundTransparency = 1,
+		BackgroundTransparency = 0,
 		BorderSizePixel = 0,
+		GroupTransparency = 1,
 		LayoutOrder = -math.floor(os.clock() * 1000),
 		ZIndex = 102,
 		Parent = self._notificationContainer,
 	})
 	toastMaid:Give(toast)
-	addCorner(toast, 10)
-	addStroke(toast, Theme.Stroke, 0.35, 1)
+	addCorner(toast, PANEL_CORNER_RADIUS)
+	addStroke(toast, Theme.Stroke, 0.38, 1)
+	addGradient(toast, Color3.fromRGB(27, 27, 27), Color3.fromRGB(20, 20, 20), 90)
 
 	local accent = create("Frame", {
 		Size = UDim2.fromOffset(4, config.Title and 96 or 78),
@@ -1351,7 +2429,7 @@ function WindowMethods:Notify(config)
 		Position = UDim2.new(1, -36, 0, 8),
 		Size = UDim2.fromOffset(28, 28),
 		BackgroundTransparency = 1,
-		Text = "x",
+		Text = "×",
 		TextColor3 = Theme.Subtext,
 		TextSize = 13,
 		ZIndex = 105,
@@ -1373,11 +2451,10 @@ function WindowMethods:Notify(config)
 		end
 		dismissed = true
 
-		local tween = playTween(toast, TWEEN_INFO, {
-			BackgroundTransparency = 1,
+		local tween = playTween(toast, FADE_TWEEN_INFO, {
+			GroupTransparency = 1,
 			Position = UDim2.fromOffset(30, 0),
 		})
-		playTween(accent, TWEEN_INFO, { BackgroundTransparency = 1 })
 		toastMaid:Give(tween.Completed:Connect(function()
 			self._maid:Forget(rootTaskId)
 			toastMaid:Cleanup()
@@ -1392,7 +2469,7 @@ function WindowMethods:Notify(config)
 		closeButton.TextColor3 = Theme.Subtext
 	end))
 
-	playTween(toast, TWEEN_INFO, { BackgroundTransparency = 0 })
+	playTween(toast, POP_TWEEN_INFO, { GroupTransparency = 0, Position = UDim2.fromOffset(0, 0) })
 	playTween(progress, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
 		Size = UDim2.new(0, 0, 0, 3),
 	})
@@ -1447,6 +2524,17 @@ function Library:CreateWindow(config)
 	end
 	baseSize = Vector2.new(math.clamp(baseSize.X, 720, 1280), math.clamp(baseSize.Y, 460, 820))
 
+	local initialKeybind
+	if config.Keybind == nil then
+		initialKeybind = Enum.KeyCode.RightShift
+	else
+		initialKeybind = normalizeKeyCode(config.Keybind)
+		if config.Keybind ~= false and config.Keybind ~= Enum.KeyCode.Unknown and initialKeybind == nil then
+			warn("[SpotifyUI] Keybind inicial inválido; usando RightShift.")
+			initialKeybind = Enum.KeyCode.RightShift
+		end
+	end
+
 	local screenGui = create("ScreenGui", {
 		Name = config.Name or ("SpotifyUI_%d"):format(self._windowCounter),
 		IgnoreGuiInset = false,
@@ -1457,34 +2545,53 @@ function Library:CreateWindow(config)
 	})
 
 	local shadow = create("Frame", {
+		Name = "WindowShadow",
 		AnchorPoint = Vector2.new(0.5, 0.5),
-		Position = UDim2.new(0.5, 6, 0.5, 9),
-		Size = UDim2.fromOffset(baseSize.X, baseSize.Y),
+		Position = UDim2.new(0.5, 0, 0.5, 10),
+		Size = UDim2.fromOffset(baseSize.X + 18, baseSize.Y + 18),
 		BackgroundColor3 = Theme.Shadow,
-		BackgroundTransparency = 0.45,
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 1,
 		Parent = screenGui,
 	})
-	addCorner(shadow, 14)
+	addCorner(shadow, WINDOW_CORNER_RADIUS + 7)
 
-	local main = create("Frame", {
+	local outline = create("Frame", {
+		Name = "WindowOutline",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(baseSize.X + 2, baseSize.Y + 2),
+		BackgroundColor3 = Theme.Outline,
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 2,
+		Parent = screenGui,
+	})
+	addCorner(outline, WINDOW_CORNER_RADIUS + 1)
+
+	local main = create("CanvasGroup", {
 		Name = "Main",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.fromOffset(baseSize.X, baseSize.Y),
 		BackgroundColor3 = Theme.Background,
 		BorderSizePixel = 0,
-		ClipsDescendants = false,
-		ZIndex = 2,
+		ClipsDescendants = true,
+		GroupTransparency = 1,
+		ZIndex = 3,
 		Parent = screenGui,
 	})
-	addCorner(main, 14)
-	addStroke(main, Theme.Stroke, 0.5, 1)
+	addCorner(main, WINDOW_CORNER_RADIUS)
+	addGradient(main, Color3.fromRGB(18, 18, 18), Color3.fromRGB(12, 12, 12), 90)
 
 	local uiScale = create("UIScale", {
 		Scale = 1,
 		Parent = main,
+	})
+	local outlineScale = create("UIScale", {
+		Scale = 1,
+		Parent = outline,
 	})
 	local shadowScale = create("UIScale", {
 		Scale = 1,
@@ -1493,26 +2600,16 @@ function Library:CreateWindow(config)
 
 	local sidebar = create("Frame", {
 		Name = "Sidebar",
-		Size = UDim2.new(0, 220, 1, 0),
+		Size = UDim2.new(0, 220, 1, -NOW_PLAYING_HEIGHT),
 		BackgroundColor3 = Theme.Sidebar,
 		BorderSizePixel = 0,
 		ZIndex = 3,
 		Parent = main,
 	})
-	create("UICorner", {
-		CornerRadius = UDim.new(0, 14),
-		Parent = sidebar,
-	})
+	addGradient(sidebar, Color3.fromRGB(24, 24, 24), Color3.fromRGB(18, 18, 18), 90)
 
-	-- Tampa o arredondamento do lado direito da sidebar sem alterar os cantos externos.
-	create("Frame", {
-		Position = UDim2.new(1, -14, 0, 0),
-		Size = UDim2.new(0, 14, 1, 0),
-		BackgroundColor3 = Theme.Sidebar,
-		BorderSizePixel = 0,
-		ZIndex = 3,
-		Parent = sidebar,
-	})
+	-- A sidebar não recebe UICorner próprio. O recorte vem da janela principal,
+	-- evitando quinas internas arredondadas e linhas quebradas junto à barra inferior.
 
 	local titleLabel = makeTextLabel(sidebar, {
 		Position = UDim2.fromOffset(18, 17),
@@ -1538,15 +2635,16 @@ function Library:CreateWindow(config)
 
 	local tabsContainer = create("ScrollingFrame", {
 		Name = "Tabs",
-		Position = UDim2.fromOffset(12, 84),
-		Size = UDim2.new(1, -24, 1, -96),
+		Position = UDim2.fromOffset(12, SIDEBAR_HEADER_HEIGHT),
+		Size = UDim2.new(1, -24, 1, -(SIDEBAR_HEADER_HEIGHT + SETTINGS_AREA_HEIGHT)),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		CanvasSize = UDim2.new(),
 		AutomaticCanvasSize = Enum.AutomaticSize.Y,
 		ScrollingDirection = Enum.ScrollingDirection.Y,
 		ScrollBarImageColor3 = Theme.Subtext,
-		ScrollBarThickness = 3,
+		ScrollBarImageTransparency = 0.68,
+		ScrollBarThickness = 2,
 		ZIndex = 5,
 		Parent = sidebar,
 	})
@@ -1556,27 +2654,75 @@ function Library:CreateWindow(config)
 		Parent = tabsContainer,
 	})
 
+	create("Frame", {
+		Name = "SettingsDivider",
+		Position = UDim2.new(0, 16, 1, -64),
+		Size = UDim2.new(1, -32, 0, 1),
+		BackgroundColor3 = Theme.Divider,
+		BackgroundTransparency = 0.48,
+		BorderSizePixel = 0,
+		ZIndex = 5,
+		Parent = sidebar,
+	})
+
+	local settingsTabsContainer = create("Frame", {
+		Name = "SettingsTab",
+		Position = UDim2.new(0, 12, 1, -54),
+		Size = UDim2.new(1, -24, 0, 42),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 5,
+		Parent = sidebar,
+	})
+	create("UIListLayout", {
+		Padding = UDim.new(0, 0),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = settingsTabsContainer,
+	})
+
 	local content = create("Frame", {
 		Name = "Content",
 		Position = UDim2.fromOffset(220, 0),
-		Size = UDim2.new(1, -220, 1, 0),
+		Size = UDim2.new(1, -220, 1, -NOW_PLAYING_HEIGHT),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 3,
 		Parent = main,
 	})
 
+	local sidebarDivider = create("Frame", {
+		Name = "SidebarDivider",
+		Position = UDim2.fromOffset(219, 0),
+		Size = UDim2.new(0, 1, 1, -NOW_PLAYING_HEIGHT),
+		BackgroundColor3 = Theme.Divider,
+		BackgroundTransparency = 0.58,
+		BorderSizePixel = 0,
+		ZIndex = 19,
+		Parent = main,
+	})
+
 	local topbar = create("Frame", {
 		Name = "Topbar",
-		Size = UDim2.new(1, 0, 0, 64),
-		BackgroundColor3 = Theme.Background,
+		Size = UDim2.new(1, 0, 0, TOPBAR_HEIGHT),
+		BackgroundColor3 = Theme.BackgroundAlt,
 		BorderSizePixel = 0,
 		ZIndex = 4,
 		Parent = content,
 	})
+	addGradient(topbar, Color3.fromRGB(21, 21, 21), Color3.fromRGB(15, 15, 15), 90)
+	create("Frame", {
+		Name = "BottomDivider",
+		Position = UDim2.new(0, 14, 1, -1),
+		Size = UDim2.new(1, -28, 0, 1),
+		BackgroundColor3 = Theme.Divider,
+		BackgroundTransparency = 0.72,
+		BorderSizePixel = 0,
+		ZIndex = 5,
+		Parent = topbar,
+	})
 
 	local currentTabLabel = makeTextLabel(topbar, {
-		Position = UDim2.fromOffset(18, 0),
+		Position = UDim2.fromOffset(18, -3),
 		Size = UDim2.new(1, -220, 1, 0),
 		Font = Enum.Font.GothamBold,
 		Text = "",
@@ -1585,6 +2731,17 @@ function Library:CreateWindow(config)
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 5,
 	})
+
+	local topbarAccent = create("Frame", {
+		Position = UDim2.fromOffset(18, TOPBAR_HEIGHT - 13),
+		Size = UDim2.fromOffset(34, 2),
+		BackgroundColor3 = Theme.Accent,
+		BackgroundTransparency = 0.16,
+		BorderSizePixel = 0,
+		ZIndex = 6,
+		Parent = topbar,
+	})
+	addCorner(topbarAccent, 1)
 
 	local dragHandle = create("Frame", {
 		Name = "DragHandle",
@@ -1599,11 +2756,13 @@ function Library:CreateWindow(config)
 		Position = UDim2.new(1, -190, 0.5, -16),
 		Size = UDim2.fromOffset(32, 32),
 		BackgroundColor3 = Theme.Card,
-		Text = "-",
+		Text = "−",
 		TextSize = 17,
 		ZIndex = 7,
 	})
 	addCorner(scaleMinus, 16)
+	local scaleMinusStroke = addStroke(scaleMinus, Theme.Stroke, 0.78, 1)
+	local scaleMinusScale = create("UIScale", { Scale = 1, Parent = scaleMinus })
 
 	local scaleLabel = makeTextLabel(topbar, {
 		Position = UDim2.new(1, -154, 0.5, -16),
@@ -1624,28 +2783,185 @@ function Library:CreateWindow(config)
 		ZIndex = 7,
 	})
 	addCorner(scalePlus, 16)
+	local scalePlusStroke = addStroke(scalePlus, Theme.Stroke, 0.78, 1)
+	local scalePlusScale = create("UIScale", { Scale = 1, Parent = scalePlus })
 
 	local closeButton = makeTextButton(topbar, {
 		Position = UDim2.new(1, -50, 0.5, -16),
 		Size = UDim2.fromOffset(32, 32),
 		BackgroundColor3 = Theme.Card,
-		Text = "x",
+		Text = "×",
 		TextColor3 = Theme.Subtext,
 		TextSize = 13,
 		ZIndex = 7,
 	})
 	addCorner(closeButton, 16)
+	local closeStroke = addStroke(closeButton, Theme.Stroke, 0.78, 1)
+	local closeScale = create("UIScale", { Scale = 1, Parent = closeButton })
 
 	local pageContainer = create("Frame", {
 		Name = "Pages",
-		Position = UDim2.fromOffset(0, 64),
-		Size = UDim2.new(1, 0, 1, -64),
+		Position = UDim2.fromOffset(0, TOPBAR_HEIGHT),
+		Size = UDim2.new(1, -4, 1, -TOPBAR_HEIGHT),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		ZIndex = 4,
 		Parent = content,
 	})
+
+	local nowPlaying = create("Frame", {
+		Name = "NowPlaying",
+		Position = UDim2.new(0, 0, 1, -NOW_PLAYING_HEIGHT),
+		Size = UDim2.new(1, 0, 0, NOW_PLAYING_HEIGHT),
+		BackgroundColor3 = Theme.Sidebar,
+		BorderSizePixel = 0,
+		Visible = config.ShowNowPlaying ~= false,
+		ZIndex = 20,
+		Parent = main,
+	})
+	addGradient(nowPlaying, Color3.fromRGB(24, 24, 24), Color3.fromRGB(17, 17, 17), 0)
+
+	create("Frame", {
+		Name = "TopDivider",
+		Position = UDim2.fromOffset(12, 0),
+		Size = UDim2.new(1, -24, 0, 1),
+		BackgroundColor3 = Theme.Divider,
+		BackgroundTransparency = 0.42,
+		BorderSizePixel = 0,
+		ZIndex = 21,
+		Parent = nowPlaying,
+	})
+
+	local gameIconHolder = create("Frame", {
+		Name = "GameIconHolder",
+		Position = UDim2.fromOffset(14, 11),
+		Size = UDim2.fromOffset(60, 60),
+		BackgroundColor3 = Theme.Card,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 21,
+		Parent = nowPlaying,
+	})
+	addCorner(gameIconHolder, CARD_CORNER_RADIUS)
+	addStroke(gameIconHolder, Theme.Stroke, 0.62, 1)
+	local gameIconScale = create("UIScale", { Scale = 1, Parent = gameIconHolder })
+
+	makeTextLabel(gameIconHolder, {
+		Size = UDim2.fromScale(1, 1),
+		Font = Enum.Font.GothamBold,
+		Text = "◇",
+		TextColor3 = Theme.Subtext,
+		TextSize = 22,
+		ZIndex = 21,
+	})
+
+	local defaultIcon = ""
+	if game.GameId > 0 then
+		defaultIcon = string.format("rbxthumb://type=GameIcon&id=%d&w=150&h=150", game.GameId)
+	end
+
+	local gameIcon = create("ImageLabel", {
+		Name = "GameIcon",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Image = tostring(config.GameIcon or defaultIcon),
+		ScaleType = Enum.ScaleType.Crop,
+		ZIndex = 22,
+		Parent = gameIconHolder,
+	})
+
+	local gameNameLabel = makeTextLabel(nowPlaying, {
+		Name = "GameName",
+		Position = UDim2.fromOffset(88, 15),
+		Size = UDim2.new(1, -270, 0, 25),
+		Font = Enum.Font.GothamBold,
+		Text = tostring(config.GameName or game.Name or "Experiência Roblox"),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 16,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 22,
+	})
+
+	local gameCreatorLabel = makeTextLabel(nowPlaying, {
+		Name = "GameCreator",
+		Position = UDim2.fromOffset(88, 42),
+		Size = UDim2.new(1, -270, 0, 20),
+		Text = tostring(config.GameCreator or "Criador do jogo"),
+		TextColor3 = Theme.Subtext,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 12,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 22,
+	})
+
+	local gameStatus = makeTextButton(nowPlaying, {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -18, 0.5, 0),
+		Size = UDim2.fromOffset(142, 34),
+		BackgroundColor3 = Theme.Card,
+		Text = "",
+		ZIndex = 21,
+	})
+	addCorner(gameStatus, 17)
+	local gameStatusStroke = addStroke(gameStatus, Theme.Stroke, 0.8, 1)
+	local gameStatusScale = create("UIScale", { Scale = 1, Parent = gameStatus })
+
+	local statusPulse = create("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(17, 17),
+		Size = UDim2.fromOffset(8, 8),
+		BackgroundColor3 = Theme.AccentHover,
+		BackgroundTransparency = 0.62,
+		BorderSizePixel = 0,
+		ZIndex = 21,
+		Parent = gameStatus,
+	})
+	addCorner(statusPulse, 9)
+
+	local pulseTween =
+		playTween(statusPulse, TweenInfo.new(1.25, Enum.EasingStyle.Sine, Enum.EasingDirection.Out, -1, false), {
+			Size = UDim2.fromOffset(18, 18),
+			BackgroundTransparency = 1,
+		})
+	maid:Give(pulseTween)
+
+	local statusDot = create("Frame", {
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromOffset(17, 17),
+		Size = UDim2.fromOffset(8, 8),
+		BackgroundColor3 = Theme.AccentHover,
+		BorderSizePixel = 0,
+		ZIndex = 22,
+		Parent = gameStatus,
+	})
+	addCorner(statusDot, 4)
+
+	makeTextLabel(gameStatus, {
+		Position = UDim2.fromOffset(30, 0),
+		Size = UDim2.new(1, -38, 1, 0),
+		Font = Enum.Font.GothamMedium,
+		Text = "Experiência atual",
+		TextColor3 = Theme.Subtext,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 11,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 22,
+	})
+
+	bindInteractiveSurface(gameStatus, maid, gameStatus, gameStatusStroke, gameStatusScale, {
+		NormalColor = Theme.Card,
+		HoverColor = Theme.CardHover,
+		StrokeTransparency = 0.8,
+		HoverStrokeTransparency = 0.5,
+	})
+	maid:Give(gameIconHolder.MouseEnter:Connect(function()
+		playTween(gameIconScale, FAST_TWEEN_INFO, { Scale = 1.035 })
+	end))
+	maid:Give(gameIconHolder.MouseLeave:Connect(function()
+		playTween(gameIconScale, FAST_TWEEN_INFO, { Scale = 1 })
+	end))
 
 	local notificationContainer = create("Frame", {
 		Name = "Notifications",
@@ -1675,20 +2991,36 @@ function Library:CreateWindow(config)
 		_screenGui = screenGui,
 		_shadow = shadow,
 		_shadowScale = shadowScale,
+		_outline = outline,
+		_outlineScale = outlineScale,
 		_main = main,
 		_uiScale = uiScale,
 		_sidebar = sidebar,
+		_sidebarDivider = sidebarDivider,
 		_content = content,
 		_titleLabel = titleLabel,
 		_subtitleLabel = subtitleLabel,
 		_tabsContainer = tabsContainer,
+		_settingsTabsContainer = settingsTabsContainer,
 		_currentTabLabel = currentTabLabel,
+		_topbarAccent = topbarAccent,
 		_pageContainer = pageContainer,
 		_scaleLabel = scaleLabel,
+		_nowPlaying = nowPlaying,
+		_gameIcon = gameIcon,
+		_gameNameLabel = gameNameLabel,
+		_gameCreatorLabel = gameCreatorLabel,
+		_gameStatus = gameStatus,
+		_nowPlayingVisible = config.ShowNowPlaying ~= false,
 		_notificationContainer = notificationContainer,
 		_notificationScale = notificationScale,
 		_tabs = {},
 		_currentTab = nil,
+		_settingsTab = nil,
+		_keybind = initialKeybind,
+		_keybindListeners = {},
+		_activeKeybindPicker = nil,
+		_capturedKeybindInput = nil,
 		_baseSize = baseSize,
 		_userScale = math.clamp(tonumber(config.Scale) or 1, minScale, maxScale),
 		_minScale = minScale,
@@ -1696,28 +3028,55 @@ function Library:CreateWindow(config)
 		_autoScale = config.AutoScale ~= false,
 		_maxAutoScale = math.max(tonumber(config.MaxAutoScale) or 1.2, 0.25),
 		_viewportMargin = tonumber(config.ViewportMargin) or 20,
+		_closeBehavior = config.CloseBehavior == "Destroy" and "Destroy" or "Hide",
+		_animationsEnabled = config.Animations ~= false,
+		_visible = false,
+		_visibilityAnimating = false,
+		_visibilityTweens = {},
+		_visibilityConnection = nil,
+		_effectiveScale = 1,
 		_destroyed = false,
 	}, WindowMethods)
 
-	-- Mantém a sombra sincronizada com a janela principal.
+	-- Mantém contorno e sombra sincronizados sem depender de UIStroke no frame recortado.
 	maid:Give(main:GetPropertyChangedSignal("Position"):Connect(function()
-		shadow.Position = UDim2.new(
-			main.Position.X.Scale,
-			main.Position.X.Offset + 6,
-			main.Position.Y.Scale,
-			main.Position.Y.Offset + 9
-		)
+		window:_syncWindowLayers()
 	end))
 	maid:Give(main:GetPropertyChangedSignal("Size"):Connect(function()
-		shadow.Size = main.Size
+		window:_syncWindowLayers()
 	end))
-	maid:Give(uiScale:GetPropertyChangedSignal("Scale"):Connect(function()
-		shadowScale.Scale = uiScale.Scale
-	end))
+	maid:Give(function()
+		window:_cancelVisibilityTweens()
+		window:_cancelResponsiveTweens()
+	end)
 
-	bindHover(scaleMinus, maid, Theme.Card, Theme.CardHover)
-	bindHover(scalePlus, maid, Theme.Card, Theme.CardHover)
-	bindHover(closeButton, maid, Theme.Card, Theme.Danger)
+	bindInteractiveSurface(scaleMinus, maid, scaleMinus, scaleMinusStroke, scaleMinusScale, {
+		NormalColor = Theme.Card,
+		HoverColor = Theme.CardHover,
+		StrokeTransparency = 0.78,
+		HoverStrokeTransparency = 0.48,
+	})
+	bindInteractiveSurface(scalePlus, maid, scalePlus, scalePlusStroke, scalePlusScale, {
+		NormalColor = Theme.Card,
+		HoverColor = Theme.CardHover,
+		StrokeTransparency = 0.78,
+		HoverStrokeTransparency = 0.48,
+	})
+	bindInteractiveSurface(closeButton, maid, closeButton, closeStroke, closeScale, {
+		NormalColor = Theme.Card,
+		HoverColor = Theme.Danger,
+		PressedColor = Theme.Danger,
+		StrokeColor = Theme.Stroke,
+		HoverStrokeColor = Theme.Danger,
+		StrokeTransparency = 0.78,
+		HoverStrokeTransparency = 0.28,
+	})
+	maid:Give(closeButton.MouseEnter:Connect(function()
+		playTween(closeButton, FAST_TWEEN_INFO, { TextColor3 = Theme.Text })
+	end))
+	maid:Give(closeButton.MouseLeave:Connect(function()
+		playTween(closeButton, FAST_TWEEN_INFO, { TextColor3 = Theme.Subtext })
+	end))
 
 	maid:Give(scaleMinus.MouseButton1Click:Connect(function()
 		window:SetScale(window:GetScale() - 0.1)
@@ -1726,7 +3085,11 @@ function Library:CreateWindow(config)
 		window:SetScale(window:GetScale() + 0.1)
 	end))
 	maid:Give(closeButton.MouseButton1Click:Connect(function()
-		window:Destroy()
+		if window._closeBehavior == "Destroy" then
+			window:Destroy()
+		else
+			window:SetVisible(false)
+		end
 	end))
 
 	local dragging = false
@@ -1761,13 +3124,10 @@ function Library:CreateWindow(config)
 		local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
 		local currentPosition = Vector2.new(input.Position.X, input.Position.Y)
 		local desiredCenter = startCenter + (currentPosition - dragStart)
-		desiredCenter = Vector2.new(
-			math.clamp(desiredCenter.X, 36, math.max(viewport.X - 36, 36)),
-			math.clamp(desiredCenter.Y, 36, math.max(viewport.Y - 36, 36))
-		)
 
 		main.Position =
 			UDim2.fromScale(desiredCenter.X / math.max(viewport.X, 1), desiredCenter.Y / math.max(viewport.Y, 1))
+		window:_clampToViewport(viewport, window:GetEffectiveScale())
 	end))
 
 	maid:Give(UserInputService.InputEnded:Connect(function(input)
@@ -1779,12 +3139,78 @@ function Library:CreateWindow(config)
 		end
 	end))
 
+	maid:Give(UserInputService.InputBegan:Connect(function(input, gameProcessedEvent)
+		if window._capturedKeybindInput == input then
+			window._capturedKeybindInput = nil
+			return
+		end
+
+		if
+			window._activeKeybindPicker ~= nil
+			or gameProcessedEvent
+			or UserInputService:GetFocusedTextBox() ~= nil
+			or input.UserInputType ~= Enum.UserInputType.Keyboard
+			or window._keybind == nil
+		then
+			return
+		end
+
+		if input.KeyCode == window._keybind then
+			window:ToggleVisible()
+		end
+	end))
+
 	maid:Give(Workspace:GetPropertyChangedSignal("CurrentCamera"):Connect(function()
 		window:_bindCurrentCamera()
 	end))
 
+	if config.GameCreator == nil or config.GameName == nil then
+		local infoTaskId
+		infoTaskId = maid:Give(task.spawn(function()
+			local ok, productInfo = pcall(function()
+				return MarketplaceService:GetProductInfoAsync(game.PlaceId, Enum.InfoType.Asset)
+			end)
+
+			if ok and type(productInfo) == "table" and not window._destroyed then
+				if config.GameName == nil and productInfo.Name then
+					gameNameLabel.Text = tostring(productInfo.Name)
+				end
+
+				if config.GameCreator == nil then
+					local creator = productInfo.Creator
+					local creatorName
+					if type(creator) == "table" then
+						creatorName = creator.Name or creator.CreatorName
+					elseif type(creator) == "string" then
+						creatorName = creator
+					end
+					if creatorName and creatorName ~= "" then
+						gameCreatorLabel.Text = tostring(creatorName)
+					else
+						gameCreatorLabel.Text = "Criador desconhecido"
+					end
+				end
+			elseif config.GameCreator == nil and not window._destroyed then
+				gameCreatorLabel.Text = "Criador desconhecido"
+			end
+
+			maid:Forget(infoTaskId)
+		end))
+	end
+
+	window:_createSettingsTab()
+	local initialSelectionTaskId
+	initialSelectionTaskId = maid:Give(task.defer(function()
+		maid:Forget(initialSelectionTaskId)
+		if not window._destroyed and not window._currentTab and window._settingsTab then
+			window:SelectTab(window._settingsTab)
+		end
+	end))
+
 	window._scaleLabel.Text = string.format("%d%%", math.floor(window._userScale * 100 + 0.5))
+	window:_syncWindowLayers()
 	window:_bindCurrentCamera()
+	window:SetVisible(true, config.AnimateOnStart == false)
 
 	self._windows[window] = true
 	self._lastWindow = window
