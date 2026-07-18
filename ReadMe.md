@@ -2,12 +2,12 @@
 
 # 🎵 Spotify UI Library
 
-### Uma UI Library moderna para Roblox, escrita em Luau e inspirada no visual do Spotify.
+### A modern Roblox UI library written in Luau, styled after Spotify's look.
 
-<img alt="Versão" src="https://img.shields.io/badge/versão-1.1.0-1DB954?style=for-the-badge">
+<img alt="Version" src="https://img.shields.io/badge/version-1.4.0-1DB954?style=for-the-badge">
 <img alt="Luau" src="https://img.shields.io/badge/Luau-Roblox-00A2FF?style=for-the-badge&logo=roblox">
-<img alt="Cliente" src="https://img.shields.io/badge/execução-LocalScript-181818?style=for-the-badge">
-<img alt="Dependências" src="https://img.shields.io/badge/dependências-nenhuma-1DB954?style=for-the-badge">
+<img alt="Client" src="https://img.shields.io/badge/runs%20on-LocalScript-181818?style=for-the-badge">
+<img alt="Dependencies" src="https://img.shields.io/badge/dependencies-none-1DB954?style=for-the-badge">
 
 <br><br>
 
@@ -15,119 +15,275 @@
 
 ---
 
-## ✨ Sobre
+## ✨ About
 
-A **Spotify UI Library** é uma biblioteca de interface para Roblox focada em uma API simples, visual consistente e fácil manutenção. Ela oferece uma janela completa com sidebar, tabs, sections, componentes interativos, notificações, escala responsiva, keybind configurável e uma barra inferior inspirada no “Now Playing” do Spotify.
-
-> [!IMPORTANT]
-> Esta biblioteca deve ser executada no cliente. Não use `CreateWindow` em `Script` de servidor.
+Spotify UI Library is a Roblox interface library built around a simple API, a consistent look, and code that's easy to maintain. You get a full window with sidebar, tabs, sections, interactive components, notifications, responsive scaling, a configurable keybind, and a bottom bar inspired by Spotify's "Now Playing".
 
 ---
 
-## 📚 Sumário
+# 📜 Update Logs
 
-- [Recursos](#-recursos)
-- [Requisitos](#-requisitos)
-- [Instalação](#-instalação)
-- [Início rápido](#-início-rápido)
-- [Estrutura da API](#-estrutura-da-api)
-- [Configuração da janela](#-configuração-da-janela)
-- [Tabs e Sections](#-tabs-e-sections)
-- [Componentes](#-componentes)
-- [Settings e Keybind](#-settings-e-keybind)
-- [Barra Now Playing](#-barra-now-playing)
-- [Notificações](#-notificações)
-- [Responsividade e escala](#-responsividade-e-escala)
-- [Tema](#-tema)
-- [Limpeza e destruição](#-limpeza-e-destruição)
-- [Exemplo completo](#-exemplo-completo)
-- [Update Logs](#-update-logs)
-- [Problemas comuns](#-problemas-comuns)
+Changes for every version, newest on top.
+
+## `v1.4.0` — 07/17/2026
+
+### 🔧 Changed
+
+- All `UIStroke` instances across the library now use `Thickness = 2`.
+- Notifications are now pinned to the bottom-right corner of the screen.
+- New notifications stack upward, keeping the newest one closest to the bottom.
+- Notification animations now run on a separate slot so `UIListLayout` and `Position` tweens stop fighting each other.
+- Tab hover keeps the button size fixed and only animates background, text and stroke, so it no longer leaks outside the `ScrollingFrame`.
+- The notification duration bar is now inset inside the card instead of touching the outer edge.
+
+### 🐛 Fixed
+
+- Tab borders getting clipped by the sidebar's `ScrollingFrame` during hover/selection.
+- Tab stroke only showing part of the sides at certain scales.
+- Notification borders blending visually with the side accent stripe and the duration bar.
+- Notification `UIStroke` getting cut off on rounded corners.
+- Notification enter/exit tweens getting overridden by `UIListLayout`.
+
+## `v1.3.0` — 07/17/2026
+
+### ✨ Added
+
+- Session timeline on the bottom bar, inspired by Spotify's progress bar.
+- `mm:ss` / `h:mm:ss` counter showing how long the window has been open.
+- New config options: `ShowSessionTimer`, `SessionTimerDuration`, `SessionTimerText`.
+- New APIs: `GetSessionElapsed`, `ResetSessionTimer`, `SetSessionTimerVisible`.
+- Hover tween on the timeline plus a knob that follows progress.
+
+### 🔧 Changed
+
+- The Now Playing bar grows its height automatically when the timeline is visible.
+- The outer shadow is smaller and softer now.
+- The "current experience" indicator repositions itself so it doesn't collide with the timeline.
+- Layout goes back to its compact height when the timer is hidden.
+
+### 🐛 Fixed
+
+- Square outer corners caused by opaque children inside a container that has `UICorner`.
+- Uneven outer border caused by a larger Frame filled in behind the window.
+- Inconsistent stroke thickness during scale animations.
+- Sidebar top-left, topbar top-right and Now Playing bottom corners are now drawn separately.
+- Stroke, shadow and window now stay in sync while dragging, resizing or changing scale.
+- Timer connection now disconnects automatically on `Window:Destroy()`.
+
+## `v1.2.0` — 07/17/2026
+
+### ✨ Added
+
+- Window open/close animation with fade + scale.
+- Fade/slide transition when switching tabs.
+- Subtle gradients on background, sidebar, topbar, sections, cards and bottom bar.
+- Animated hover/click/press states on components.
+- Pulse effect on the current experience indicator.
+- New `Animations` and `AnimateOnStart` options in `CreateWindow`.
+
+### 🔧 Changed
+
+- Cards and sections got clearer visual hierarchy, spacing and corner radii.
+- Toggle now has a spring animation and shadow on the knob.
+- Dropdown expands more smoothly with better focus feedback.
+- Inputs and Keybind Picker now animate border/background on focus.
+- Notifications enter/exit with fade + slide.
+- Scrollbars are thinner and moved inward.
+
+### 🐛 Fixed
+
+- Outer stroke getting clipped by `ClipsDescendants`.
+- Wrong inner corners on the sidebar next to the Now Playing bar.
+- Dividers touching the window's rounded edges.
+- Page scrollbar showing up on top of the right border.
+- Dropdown `UIStroke` getting cut off while expanding/collapsing.
+- Conflict between the responsive scale tween and the open/close tween.
+- Slider staying in a hover state after dragging outside the card.
+
+## `v1.1.0` — 07/17/2026
+
+### ✨ Added
+
+- Automatic, separate `Settings` tab at the bottom of the sidebar.
+- New `Keybind Picker` component.
+- Default `RightShift` keybind to open/close the UI.
+- Bottom "Now Playing" bar showing experience info.
+- Icons on sidebar tabs.
+- Green indicator on the selected tab.
+- Destroy methods for components, sections and tabs.
+- New APIs: `SetGameInfo`, `SetNowPlayingVisible`, `SetKeybind`, `GetKeybind`.
+
+### 🔧 Changed
+
+- Close button now defaults to `CloseBehavior = "Hide"`.
+- Sidebar spacing and hierarchy now sit closer to Spotify's actual look.
+- Responsive layout now correctly reserves space for the bottom bar.
+- Sidebar width adapts to smaller viewports.
+
+### 🐛 Fixed
+
+- Stale dropdown option connections when rebuilding the list.
+- Elements overflowing past or ending up behind the bottom bar.
+- Wrong drag behavior when the window was scaled.
+- Shadow misaligned with window position/size/scale.
+- Notifications and temp tasks sticking around after destroying the UI.
+- Dangling references to already-destroyed components, tabs and sections.
+- Keybind firing while capturing a key or typing in a `TextBox`.
+
+<details>
+<summary><strong>v1.0.0 — First release</strong></summary>
+
+### ✨ Added
+
+- Main window with Spotify theme.
+- Sidebar and tab system.
+- Sections.
+- Button, Toggle, Slider, Dropdown, Input, Label and Paragraph.
+- Notifications.
+- Manual and automatic scaling.
+- Mouse and touch drag support.
+- Internal connection cleanup system.
+
+</details>
+
+### 📝 Adding a new Update Log entry
+
+Copy the template below, paste it **above the previous version**, and fill in the blanks:
+
+```md
+## `vX.Y.Z` — MM/DD/YYYY
+
+### ✨ Added
+
+- New feature.
+- New component or API.
+
+### 🔧 Changed
+
+- Updated behavior.
+- Visual tweak or API change.
+
+### 🐛 Fixed
+
+- Bug fix.
+- Responsiveness issue solved.
+
+### 🗑️ Removed
+
+- Feature removed or deprecated.
+
+### ⚠️ Breaking Changes
+
+- Change that requires updating code on the consumer side.
+```
+
+Versioning follows `MAJOR.MINOR.PATCH`:
+
+| Part | Bump when | Example |
+|---|---|---|
+| `MAJOR` | Breaking changes | `1.4.2` → `2.0.0` |
+| `MINOR` | New backwards-compatible features | `1.4.2` → `1.5.0` |
+| `PATCH` | Bug fixes and small tweaks | `1.4.2` → `1.4.3` |
+
+Don't forget to bump the version inside the ModuleScript too:
+
+```lua
+local Library = {
+    Version = "1.2.0",
+    _windows = {},
+    _windowCounter = 0,
+}
+```
+
+Suggested commit/release convention:
+
+```text
+feat: add ColorPicker component
+fix: fix sidebar scale on mobile
+refactor: reorganize cleanup system
+style: adjust card padding
+docs: update README and examples
+```
 
 ---
 
-## 🚀 Recursos
+## 📚 Table of Contents
 
-- Visual dark inspirado no Spotify.
-- Sidebar com ícone, texto e indicador de tab ativa.
-- Tab `Settings` automática e separada das tabs principais.
-- Keybind configurável para abrir e fechar a interface.
-- Barra inferior com ícone, nome e criador da experiência.
-- Janela arrastável por mouse e toque.
-- Escala manual pelos botões `-` e `+`.
-- Escala automática baseada no `ViewportSize`.
-- Compatibilidade com diferentes resoluções e proporções de tela.
-- Tabs e páginas com rolagem automática.
-- Sections com altura automática.
-- Componentes com métodos para atualização durante a execução.
-- Notificações temporárias com barra de progresso.
-- Limpeza de conexões, threads, tweens e instâncias ao destruir a UI.
-- Nenhuma dependência externa.
+- [Features](#-features)
+- [Requirements](#-requirements)
+- [Installation](#-installation)
+- [Quick Start](#-quick-start)
+- [API Structure](#-api-structure)
+- [Window Setup](#-window-setup)
+- [Tabs and Sections](#-tabs-and-sections)
+- [Components](#-components)
+- [Settings and Keybind](#-settings-and-keybind)
+- [Now Playing Bar](#-now-playing-bar)
+- [Notifications](#-notifications)
+- [Responsiveness and Scaling](#-responsiveness-and-scaling)
+- [Theme](#-theme)
+- [Cleanup and Destruction](#-cleanup-and-destruction)
+- [Full Example](#-full-example)
+- [Common Issues](#-common-issues)
 
-### Componentes disponíveis
+---
 
-| Componente | Descrição |
+## 🚀 Features
+
+- Dark Spotify-inspired look.
+- Outer corners drawn with selective surfaces, so no square edges leak through `UICorner`.
+- Real outline via `UIStroke`, independent from the window's clipping. Every stroke uses `Thickness = 2`.
+- Subtle gradients, visual elevation, hover/press states.
+- Animations for opening, closing and switching tabs.
+- Sidebar with icon, label and active-tab indicator.
+- Automatic `Settings` tab, kept separate from the main tabs.
+- Configurable keybind to open/close the interface.
+- Bottom bar showing the experience's icon, name and creator.
+- Session timer with a progress bar styled after Spotify's timeline.
+- Draggable window (mouse and touch).
+- Manual scaling via `-` / `+` buttons.
+- Automatic scaling based on `ViewportSize`.
+- Works across different resolutions and aspect ratios.
+- Auto-scrolling tabs and pages.
+- Sections with automatic height.
+- Components expose methods to update themselves at runtime.
+- Stacked, temporary notifications in the bottom-right corner with an internal progress bar.
+- Cleans up connections, threads, tweens and instances when the UI is destroyed.
+- Zero external dependencies.
+
+### Available components
+
+| Component | Description |
 |---|---|
-| `Window` | Janela principal da interface. |
-| `Tab` | Item de navegação da sidebar. |
-| `Section` | Agrupador visual de componentes. |
-| `Button` | Executa uma ação ao clicar. |
-| `Toggle` | Alterna entre ligado e desligado. |
-| `Slider` | Seleciona um valor numérico. |
-| `Dropdown` | Seleciona uma opção em uma lista. |
-| `Input` | Campo para entrada de texto. |
-| `Label` | Exibe um texto simples. |
-| `Paragraph` | Exibe título e conteúdo em múltiplas linhas. |
-| `Keybind Picker` | Captura e altera uma tecla. |
-| `Notification` | Exibe um toast temporário. |
+| `Window` | Main interface window. |
+| `Tab` | Sidebar navigation item. |
+| `Section` | Visual grouping for components. |
+| `Button` | Runs an action on click. |
+| `Toggle` | Switches on/off. |
+| `Slider` | Picks a numeric value. |
+| `Dropdown` | Picks an option from a list. |
+| `Input` | Text input field. |
+| `Label` | Plain text display. |
+| `Paragraph` | Title + multi-line content. |
+| `Keybind Picker` | Captures and changes a key. |
+| `Notification` | Shows a temporary toast. |
 
 ---
 
-## ✅ Requisitos
+## 🧩 Requirements
 
-- Roblox Studio ou um Executor decente.
-
-A biblioteca utiliza apenas serviços nativos do Roblox:
+The library only relies on native Roblox services:
 
 - `Players`
 - `TweenService`
 - `MarketplaceService`
+- `RunService`
 - `UserInputService`
 - `Workspace`
 
 ---
 
-## 📦 Instalação
-
-### 1. Crie o ModuleScript
-
-No Explorer do Roblox Studio, crie:
-
-```text
-ReplicatedStorage
-└── SpotifyUILibrary (ModuleScript)
-```
-
-Cole todo o conteúdo de `SpotifyUILibrary.lua` nesse `ModuleScript`.
-
-### 2. Crie o LocalScript
-
-Crie um `LocalScript` em um dos locais abaixo:
-
-```text
-StarterPlayer
-└── StarterPlayerScripts
-    └── SpotifyUIExample (LocalScript)
-```
-
-ou:
-
-```text
-StarterGui
-└── SpotifyUIExample (LocalScript)
-```
-
-### 3. Importe a biblioteca
+## 📦 Installation
 
 ```lua
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/SpotifyUILibrary.lua"))()
@@ -135,13 +291,13 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/spect
 
 ---
 
-## ⚡ Início rápido
+## ⚡ Quick Start
 
 ```lua
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/SpotifyUILibrary.lua"))()
 
 local Window = Library:CreateWindow({
-    Title = "Meu Menu",
+    Title = "My Menu",
     Subtitle = "Spotify UI Library",
 })
 
@@ -150,21 +306,21 @@ local HomeTab = Window:CreateTab({
     Icon = "⌂",
 })
 
-local MainSection = HomeTab:CreateSection("Controles principais")
+local MainSection = HomeTab:CreateSection("Main controls")
 
 MainSection:CreateButton({
-    Text = "Clique aqui",
-    Description = "Executa uma ação simples.",
+    Text = "Click me",
+    Description = "Runs a simple action.",
     Callback = function()
-        print("Botão pressionado")
+        print("Button pressed")
     end,
 })
 
 MainSection:CreateToggle({
-    Text = "Música ativada",
+    Text = "Music enabled",
     Default = true,
     Callback = function(enabled)
-        print("Música:", enabled)
+        print("Music:", enabled)
     end,
 })
 
@@ -182,48 +338,48 @@ MainSection:CreateSlider({
 
 ---
 
-## 🧱 Estrutura da API
+## 🧱 API Structure
 
-A hierarquia principal é:
+The main hierarchy looks like this:
 
 ```text
 Library
 └── Window
     ├── Tab
     │   └── Section
-    │       └── Componentes
-    ├── Settings Tab automática
+    │       └── Components
+    ├── Automatic Settings Tab
     ├── Now Playing
     └── Notifications
 ```
 
-Exemplo:
+Example:
 
 ```lua
 local Window = Library:CreateWindow({ Title = "Menu" })
 local Tab = Window:CreateTab("Home")
-local Section = Tab:CreateSection("Jogabilidade")
+local Section = Tab:CreateSection("Gameplay")
 local Toggle = Section:CreateToggle({ Text = "Auto Farm" })
 ```
 
-Também é possível criar componentes diretamente em uma tab. Nesse caso, a biblioteca cria uma section interna sem título:
+You can also create components directly on a tab — the library will just create an internal untitled section for you:
 
 ```lua
-local AboutTab = Window:CreateTab("Sobre")
+local AboutTab = Window:CreateTab("About")
 
 AboutTab:CreateLabel({
-    Text = "Criado com Spotify UI Library",
+    Text = "Built with Spotify UI Library",
 })
 ```
 
 ---
 
-## 🪟 Configuração da janela
+## 🪟 Window Setup
 
 ```lua
 local Window = Library:CreateWindow({
-    Name = "MinhaInterface",
-    Title = "Meu Menu",
+    Name = "MyInterface",
+    Title = "My Menu",
     Subtitle = "Spotify UI Library",
     Size = Vector2.new(940, 590),
     Scale = 1,
@@ -234,69 +390,82 @@ local Window = Library:CreateWindow({
     ViewportMargin = 20,
     Keybind = Enum.KeyCode.RightShift,
     ShowNowPlaying = true,
+    ShowSessionTimer = true,
+    SessionTimerDuration = 3600,
+    SessionTimerText = "Time open",
     CloseBehavior = "Hide",
+    Animations = true,
+    AnimateOnStart = true,
     DisplayOrder = 50,
-    GameName = "Minha experiência",
-    GameCreator = "Meu estúdio",
+    GameName = "My experience",
+    GameCreator = "My studio",
     GameIcon = "rbxassetid://123456789",
 })
 ```
 
-### Opções de `CreateWindow`
+### `CreateWindow` options
 
-| Propriedade | Tipo | Padrão | Descrição |
+| Property | Type | Default | Description |
 |---|---:|---:|---|
-| `Name` | `string` | Automático | Nome do `ScreenGui`. |
-| `Title` | `string` | `Spotify UI` | Título exibido na sidebar. |
-| `Subtitle` | `string` | `Roblox UI Library` | Subtítulo exibido abaixo do título. |
-| `Parent` | `Instance` | `PlayerGui` | Parent personalizado para o `ScreenGui`. |
-| `Size` | `Vector2` | `Vector2.new(940, 590)` | Tamanho base da janela. |
-| `Scale` | `number` | `1` | Escala manual inicial. |
-| `MinScale` | `number` | `0.65` | Menor escala permitida. |
-| `MaxScale` | `number` | `1.5` | Maior escala permitida. |
-| `AutoScale` | `boolean` | `true` | Ajusta a janela automaticamente ao viewport. |
-| `MaxAutoScale` | `number` | `1.2` | Limite da escala automática. |
-| `ViewportMargin` | `number` | `20` | Margem mantida entre a janela e a tela. |
-| `Keybind` | `Enum.KeyCode`, `string`, `false` | `RightShift` | Tecla usada para abrir ou fechar a UI. Use `false` para desativar. |
-| `ShowNowPlaying` | `boolean` | `true` | Exibe a barra inferior da experiência. |
-| `CloseBehavior` | `"Hide"` ou `"Destroy"` | `"Hide"` | Define o comportamento do botão de fechar. |
-| `DisplayOrder` | `number` | `50` | Ordem de exibição do `ScreenGui`. |
-| `GameName` | `string` | Automático | Nome exibido na barra inferior. |
-| `GameCreator` | `string` | Automático | Criador exibido na barra inferior. |
-| `GameIcon` | `string` | Automático | Asset ou thumbnail usado como ícone. |
+| `Name` | `string` | Auto | `ScreenGui` name. |
+| `Title` | `string` | `Spotify UI` | Title shown on the sidebar. |
+| `Subtitle` | `string` | `Roblox UI Library` | Subtitle shown below the title. |
+| `Parent` | `Instance` | `PlayerGui` | Custom parent for the `ScreenGui`. |
+| `Size` | `Vector2` | `Vector2.new(940, 590)` | Base window size. |
+| `Scale` | `number` | `1` | Initial manual scale. |
+| `MinScale` | `number` | `0.65` | Lowest allowed scale. |
+| `MaxScale` | `number` | `1.5` | Highest allowed scale. |
+| `AutoScale` | `boolean` | `true` | Auto-adjusts the window to the viewport. |
+| `MaxAutoScale` | `number` | `1.2` | Cap for the automatic scale. |
+| `ViewportMargin` | `number` | `20` | Margin kept between the window and the screen edge. |
+| `Keybind` | `Enum.KeyCode`, `string`, `false` | `RightShift` | Key used to open/close the UI. Pass `false` to disable it. |
+| `ShowNowPlaying` | `boolean` | `true` | Shows the bottom bar for the experience. |
+| `ShowSessionTimer` | `boolean` | `true` | Shows the timeline with elapsed time since the window was created. |
+| `SessionTimerDuration` | `number` | `3600` | Duration in seconds used as the visual scale until the bar hits 100%. The displayed time keeps counting past that. |
+| `SessionTimerText` | `string` | `Time open` | Text shown on the right side of the timeline. |
+| `CloseBehavior` | `"Hide"` or `"Destroy"` | `"Hide"` | What the close button does. |
+| `Animations` | `boolean` | `true` | Turns visual tweens on/off for the window and tabs. |
+| `AnimateOnStart` | `boolean` | `true` | Controls the entry animation when the window is created. |
+| `DisplayOrder` | `number` | `50` | Display order of the `ScreenGui`. |
+| `GameName` | `string` | Auto | Name shown on the bottom bar. |
+| `GameCreator` | `string` | Auto | Creator shown on the bottom bar. |
+| `GameIcon` | `string` | Auto | Asset or thumbnail used as icon. |
 
 > [!NOTE]
-> O tamanho informado é limitado internamente para evitar janelas pequenas ou grandes demais. A largura fica entre `720` e `1280`, e a altura entre `460` e `820`.
+> The size you pass in gets clamped internally so windows can't end up too small or too big. Width is clamped between `720` and `1280`, height between `460` and `820`.
 
-### Métodos da janela
+### Window methods
 
-| Método | Retorno | Descrição |
+| Method | Returns | Description |
 |---|---|---|
-| `Window:CreateTab(config)` | `Tab` | Cria uma nova tab. |
-| `Window:SelectTab(tabOuNome)` | `boolean` | Seleciona uma tab pelo objeto ou nome. |
-| `Window:GetSettingsTab()` | `Tab` | Retorna a tab Settings automática. |
-| `Window:SetKeybind(keyCode)` | `Window` | Altera ou remove o keybind da janela. |
-| `Window:GetKeybind()` | `Enum.KeyCode?` | Retorna o keybind atual. |
-| `Window:SetScale(scale)` | `Window` | Altera a escala manual. |
-| `Window:GetScale()` | `number` | Retorna a escala manual. |
-| `Window:GetEffectiveScale()` | `number` | Retorna a escala final aplicada após o AutoScale. |
-| `Window:SetAutoScale(enabled)` | `Window` | Ativa ou desativa a escala automática. |
-| `Window:SetSize(width, height)` | `Window` | Altera o tamanho base da janela. Também aceita `Vector2`. |
-| `Window:GetSize()` | `Vector2` | Retorna o tamanho base atual. |
-| `Window:SetTitle(title, subtitle?)` | `Window` | Atualiza o título e, opcionalmente, o subtítulo. |
-| `Window:SetVisible(visible)` | `Window` | Mostra ou esconde a UI. |
-| `Window:ToggleVisible()` | `boolean` | Alterna a visibilidade e retorna o novo estado. |
-| `Window:SetGameInfo(config)` | `Window` | Atualiza nome, criador e ícone da barra inferior. |
-| `Window:SetNowPlayingVisible(visible)` | `Window` | Mostra ou esconde a barra inferior. |
-| `Window:Notify(config)` | `Notification?` | Exibe uma notificação. |
-| `Window:Destroy()` | — | Destrói a janela e limpa seus recursos. |
+| `Window:CreateTab(config)` | `Tab` | Creates a new tab. |
+| `Window:SelectTab(tabOrName)` | `boolean` | Selects a tab by object or name. |
+| `Window:GetSettingsTab()` | `Tab` | Returns the automatic Settings tab. |
+| `Window:SetKeybind(keyCode)` | `Window` | Changes or removes the window's keybind. |
+| `Window:GetKeybind()` | `Enum.KeyCode?` | Returns the current keybind. |
+| `Window:SetScale(scale)` | `Window` | Changes the manual scale. |
+| `Window:GetScale()` | `number` | Returns the manual scale. |
+| `Window:GetEffectiveScale()` | `number` | Returns the final scale actually applied after AutoScale. |
+| `Window:SetAutoScale(enabled)` | `Window` | Toggles automatic scaling. |
+| `Window:SetSize(width, height)` | `Window` | Changes the base window size. Also accepts a `Vector2`. |
+| `Window:GetSize()` | `Vector2` | Returns the current base size. |
+| `Window:SetTitle(title, subtitle?)` | `Window` | Updates title and, optionally, subtitle. |
+| `Window:SetVisible(visible, instant?)` | `Window` | Shows/hides the UI, animated by default. |
+| `Window:ToggleVisible()` | `boolean` | Toggles visibility, returns the new state. |
+| `Window:SetGameInfo(config)` | `Window` | Updates name, creator and icon on the bottom bar. |
+| `Window:SetNowPlayingVisible(visible)` | `Window` | Shows/hides the bottom bar. |
+| `Window:SetSessionTimerVisible(visible)` | `Window` | Shows/hides the timeline and recalculates the bottom bar height. |
+| `Window:GetSessionElapsed()` | `number` | Returns how many seconds the window has been open. |
+| `Window:ResetSessionTimer()` | `Window` | Resets the timer and its visual progress. |
+| `Window:Notify(config)` | `Notification?` | Shows a notification. |
+| `Window:Destroy()` | — | Destroys the window and cleans up its resources. |
 
-### Exemplos de controle da janela
+### Window control examples
 
 ```lua
 Window:SetScale(1.15)
 Window:SetSize(1000, 640)
-Window:SetTitle("Novo título", "Novo subtítulo")
+Window:SetTitle("New title", "New subtitle")
 Window:SetAutoScale(true)
 Window:SetVisible(false)
 Window:SetVisible(true)
@@ -304,54 +473,54 @@ Window:SetVisible(true)
 
 ---
 
-## 🧭 Tabs e Sections
+## 🧭 Tabs and Sections
 
-### Criando uma tab
+### Creating a tab
 
-A forma simples:
+The simple way:
 
 ```lua
 local HomeTab = Window:CreateTab("Home")
 ```
 
-Com ícone de texto:
+With a text icon:
 
 ```lua
 local MusicTab = Window:CreateTab({
-    Name = "Música",
+    Name = "Music",
     Icon = "♫",
 })
 ```
 
-Com ícone de imagem:
+With an image icon:
 
 ```lua
 local InventoryTab = Window:CreateTab({
-    Name = "Inventário",
+    Name = "Inventory",
     Icon = "rbxassetid://123456789",
     IconColor = Library.Theme.Text,
 })
 ```
 
-### Opções de tab
+### Tab options
 
-| Propriedade | Tipo | Descrição |
+| Property | Type | Description |
 |---|---:|---|
-| `Name` | `string` | Nome da tab. |
-| `Icon` | `string` | Símbolo, texto ou asset de imagem. |
-| `IconColor` | `Color3` | Cor inicial do ícone. |
+| `Name` | `string` | Tab name. |
+| `Icon` | `string` | Symbol, text, or image asset. |
+| `IconColor` | `Color3` | Initial icon color. |
 
-A biblioteca escolhe alguns ícones automaticamente para nomes comuns, como `Home`, `Sobre`, `Player`, `Music` e `Settings`.
+The library auto-picks some icons for common names like `Home`, `About`, `Player`, `Music` and `Settings`.
 
-### Métodos de tab
+### Tab methods
 
 ```lua
 Tab:Select()
 Tab:Destroy()
-Tab:CreateSection("Nome da section")
+Tab:CreateSection("Section name")
 ```
 
-Todos os métodos de criação de componentes também podem ser chamados diretamente pela tab:
+Every component creation method can also be called directly on a tab:
 
 ```lua
 Tab:CreateButton({...})
@@ -364,19 +533,19 @@ Tab:CreateParagraph({...})
 Tab:CreateKeybindPicker({...})
 ```
 
-### Criando uma section
+### Creating a section
 
 ```lua
-local Section = HomeTab:CreateSection("Controles principais")
+local Section = HomeTab:CreateSection("Main controls")
 ```
 
-Para criar uma section sem título:
+For an untitled section:
 
 ```lua
 local Section = HomeTab:CreateSection(nil)
 ```
 
-Para destruí-la:
+To destroy it:
 
 ```lua
 Section:Destroy()
@@ -384,9 +553,9 @@ Section:Destroy()
 
 ---
 
-## 🧩 Componentes
+## 🧩 Components
 
-Todos os componentes retornam um objeto de controle. Todos possuem:
+Every component returns a control object. All of them expose:
 
 ```lua
 Component:SetVisible(true)
@@ -398,18 +567,18 @@ Component:Destroy()
 
 ```lua
 local Button = Section:CreateButton({
-    Text = "Executar ação",
-    Description = "Descrição opcional do botão.",
+    Text = "Run action",
+    Description = "Optional button description.",
     Callback = function()
-        print("Executado")
+        print("Executed")
     end,
 })
 ```
 
-Métodos:
+Methods:
 
 ```lua
-Button:SetText("Novo texto")
+Button:SetText("New text")
 Button:Fire()
 Button:SetVisible(false)
 Button:Destroy()
@@ -421,8 +590,8 @@ Button:Destroy()
 
 ```lua
 local Toggle = Section:CreateToggle({
-    Text = "Música ativada",
-    Description = "Liga ou desliga a música do jogo.",
+    Text = "Music enabled",
+    Description = "Turns the game music on/off.",
     Default = true,
     Callback = function(enabled)
         print(enabled)
@@ -430,11 +599,11 @@ local Toggle = Section:CreateToggle({
 })
 ```
 
-Métodos:
+Methods:
 
 ```lua
 Toggle:Set(true)
-Toggle:Set(false, false) -- altera sem executar o callback
+Toggle:Set(false, false) -- changes value without firing the callback
 print(Toggle:Get())
 ```
 
@@ -456,11 +625,11 @@ local Slider = Section:CreateSlider({
 })
 ```
 
-Métodos:
+Methods:
 
 ```lua
 Slider:SetValue(50)
-Slider:SetValue(80, false) -- altera sem executar o callback
+Slider:SetValue(80, false) -- changes value without firing the callback
 print(Slider:GetValue())
 ```
 
@@ -470,29 +639,29 @@ print(Slider:GetValue())
 
 ```lua
 local Dropdown = Section:CreateDropdown({
-    Text = "Qualidade",
-    Options = { "Baixa", "Média", "Alta", "Ultra" },
-    Default = "Alta",
-    Placeholder = "Selecionar",
+    Text = "Quality",
+    Options = { "Low", "Medium", "High", "Ultra" },
+    Default = "High",
+    Placeholder = "Select",
     Callback = function(value)
         print(value)
     end,
 })
 ```
 
-Métodos:
+Methods:
 
 ```lua
 Dropdown:SetValue("Ultra")
-Dropdown:SetValue("Média", false)
+Dropdown:SetValue("Medium", false)
 print(Dropdown:GetValue())
 
-Dropdown:SetOptions({ "Opção A", "Opção B", "Opção C" })
-Dropdown:SetOptions({ "Nova A", "Nova B" }, true) -- tenta manter o valor atual
+Dropdown:SetOptions({ "Option A", "Option B", "Option C" })
+Dropdown:SetOptions({ "New A", "New B" }, true) -- tries to keep the current value
 Dropdown:SetOpen(true)
 ```
 
-A lista cresce dentro do próprio layout e exibe até quatro opções antes de usar rolagem.
+The list grows inside the layout itself and shows up to four options before switching to scrolling.
 
 ---
 
@@ -500,13 +669,13 @@ A lista cresce dentro do próprio layout e exibe até quatro opções antes de u
 
 ```lua
 local Input = Section:CreateInput({
-    Text = "Nome da playlist",
-    Placeholder = "Minha playlist...",
+    Text = "Playlist name",
+    Placeholder = "My playlist...",
     Default = "",
     ClearTextOnFocus = false,
 
     Changed = function(text)
-        print("Enquanto digita:", text)
+        print("While typing:", text)
     end,
 
     Callback = function(text, enterPressed)
@@ -515,11 +684,11 @@ local Input = Section:CreateInput({
 })
 ```
 
-Métodos:
+Methods:
 
 ```lua
-Input:SetText("Novo texto")
-Input:SetText("Executar callback", true)
+Input:SetText("New text")
+Input:SetText("Fires the callback", true)
 print(Input:GetText())
 Input:Focus()
 ```
@@ -530,7 +699,7 @@ Input:Focus()
 
 ```lua
 local Label = Section:CreateLabel({
-    Text = "Versão " .. Library.Version,
+    Text = "Version " .. Library.Version,
     Bold = true,
     Color = Library.Theme.AccentHover,
     TextSize = 13,
@@ -538,10 +707,10 @@ local Label = Section:CreateLabel({
 })
 ```
 
-Métodos:
+Methods:
 
 ```lua
-Label:SetText("Texto atualizado")
+Label:SetText("Updated text")
 Label:SetColor(Color3.fromRGB(255, 255, 255))
 ```
 
@@ -551,20 +720,20 @@ Label:SetColor(Color3.fromRGB(255, 255, 255))
 
 ```lua
 local Paragraph = Section:CreateParagraph({
-    Title = "Sobre",
-    Content = "Conteúdo longo com quebra automática de linha.",
+    Title = "About",
+    Content = "Longer content with automatic line wrapping.",
 })
 ```
 
-Métodos:
+Methods:
 
 ```lua
-Paragraph:SetTitle("Novo título")
-Paragraph:SetContent("Novo conteúdo")
+Paragraph:SetTitle("New title")
+Paragraph:SetContent("New content")
 ```
 
 > [!NOTE]
-> `SetTitle` atualiza o título apenas quando o componente foi criado com a propriedade `Title`.
+> `SetTitle` only updates the title if the component was created with a `Title` property in the first place.
 
 ---
 
@@ -572,64 +741,64 @@ Paragraph:SetContent("Novo conteúdo")
 
 ```lua
 local Keybind = Section:CreateKeybindPicker({
-    Text = "Atalho do menu",
-    Description = "Clique e pressione uma tecla.",
+    Text = "Menu shortcut",
+    Description = "Click and press a key.",
     Default = Enum.KeyCode.RightShift,
     BindToWindow = true,
     Callback = function(keyCode)
-        print("Novo keybind:", keyCode)
+        print("New keybind:", keyCode)
     end,
 })
 ```
 
-Métodos:
+Methods:
 
 ```lua
 Keybind:BeginListening()
 Keybind:CancelListening()
 Keybind:SetKeybind(Enum.KeyCode.F4)
-Keybind:SetKeybind(nil) -- remove o keybind
+Keybind:SetKeybind(nil) -- removes the keybind
 print(Keybind:GetKeybind())
 ```
 
-Comportamento durante a captura:
+Behavior while capturing:
 
-- O texto muda para `[ ... ]`.
-- A próxima tecla do teclado é capturada.
-- `Backspace` ou `Delete` remove o bind.
-- Apenas um picker pode escutar por vez dentro da janela.
-- Com `BindToWindow = true`, o valor altera o atalho principal da UI.
-- Com `BindToWindow = false`, o componente mantém um valor independente.
+- Text switches to `[ ... ]`.
+- The next keyboard key gets captured.
+- `Backspace` or `Delete` clears the bind.
+- Only one picker can listen at a time inside the window.
+- With `BindToWindow = true`, the value updates the UI's main shortcut.
+- With `BindToWindow = false`, the component keeps its own independent value.
 
 ---
 
-## ⚙️ Settings e Keybind
+## ⚙️ Settings and Keybind
 
-A tab `Settings` é criada automaticamente no rodapé da sidebar.
+The `Settings` tab is created automatically at the bottom of the sidebar.
 
 ```lua
 local SettingsTab = Window:GetSettingsTab()
 ```
 
-Ela já contém um `Keybind Picker` conectado à janela. A tecla padrão é:
+It already contains a `Keybind Picker` wired to the window. The default key is:
 
 ```lua
 Enum.KeyCode.RightShift
 ```
 
-A tecla abre ou fecha a interface inteira:
+That key opens/closes the whole interface:
 
 ```lua
 Window:SetKeybind(Enum.KeyCode.F4)
 ```
 
-Para remover o atalho:
+To remove the shortcut:
 
 ```lua
 Window:SetKeybind(nil)
 ```
 
-Também é possível desativá-lo ao criar a janela:
+You can also disable it right when creating the window:
 
 ```lua
 local Window = Library:CreateWindow({
@@ -637,103 +806,126 @@ local Window = Library:CreateWindow({
 })
 ```
 
-O keybind não é executado quando:
+The keybind won't fire when:
 
-- Outro Keybind Picker está capturando uma tecla.
-- O input foi consumido pelo jogo.
-- O jogador está digitando em um `TextBox`.
+- Another Keybind Picker is capturing a key.
+- The input was consumed by the game.
+- The player is typing in a `TextBox`.
 
-### Adicionando conteúdo à Settings
+### Adding content to Settings
 
 ```lua
 local SettingsTab = Window:GetSettingsTab()
-local ExtraSection = SettingsTab:CreateSection("Preferências")
+local ExtraSection = SettingsTab:CreateSection("Preferences")
 
 ExtraSection:CreateToggle({
-    Text = "Mostrar notificações",
+    Text = "Show notifications",
     Default = true,
 })
 ```
 
 > [!TIP]
-> Criar uma tab manualmente com o nome `Settings` retorna a tab automática já existente, em vez de duplicá-la.
+> Manually creating a tab named `Settings` just returns the existing automatic tab instead of duplicating it.
 
 ---
 
-## 🎮 Barra Now Playing
+## 🎮 Now Playing Bar
 
-A barra fixa inferior exibe informações da experiência atual:
+The fixed bottom bar shows info about the current experience:
 
-- Ícone do jogo.
-- Nome da experiência.
-- Nome do criador.
-- Indicador “Experiência atual”.
+- Game icon.
+- Experience name.
+- Creator name.
+- "Current experience" indicator.
+- Timeline with elapsed time since the window was created.
 
-Por padrão, a biblioteca tenta preencher as informações automaticamente. Você pode sobrescrevê-las na criação:
+By default the library tries to auto-fill this info. You can override it on creation:
 
 ```lua
 local Window = Library:CreateWindow({
-    GameName = "Minha experiência",
-    GameCreator = "Meu estúdio",
+    GameName = "My experience",
+    GameCreator = "My studio",
     GameIcon = "rbxassetid://123456789",
 })
 ```
 
-Ou durante a execução:
+Or at runtime:
 
 ```lua
 Window:SetGameInfo({
-    Name = "Novo nome",
-    Creator = "Novo criador",
+    Name = "New name",
+    Creator = "New creator",
     Icon = "rbxassetid://123456789",
 })
 ```
 
-Para ocultar ou mostrar a barra:
+To hide/show the bar:
 
 ```lua
 Window:SetNowPlayingVisible(false)
 Window:SetNowPlayingVisible(true)
 ```
 
-Quando a largura disponível é menor, o indicador do lado direito é ocultado automaticamente para preservar o nome e o criador.
+### Session timer
+
+The timeline runs on `RunService.Heartbeat`, with the connection registered in the window's cleanup system. The label shows the actual elapsed time; the green fill uses `SessionTimerDuration` only as a visual scale.
+
+```lua
+local Window = Library:CreateWindow({
+    ShowSessionTimer = true,
+    SessionTimerDuration = 3600,
+    SessionTimerText = "Time open",
+})
+
+print(Window:GetSessionElapsed())
+
+Window:ResetSessionTimer()
+Window:SetSessionTimerVisible(false)
+Window:SetSessionTimerVisible(true)
+```
+
+Once `SessionTimerDuration` is reached, the bar stays at 100% but the clock keeps counting normally.
+
+When available width is tight, the right-side indicator gets hidden automatically to keep the name, creator and timeline readable.
 
 ---
 
-## 🔔 Notificações
+## 🔔 Notifications
 
-### Pela janela
+Notifications show up in the **bottom-right corner** of the screen and stack upward. The stroke uses an inner layer so it stays intact even on rounded corners.
+
+### Through the window
 
 ```lua
 local Notification = Window:Notify({
-    Title = "Tudo certo",
-    Content = "A configuração foi salva.",
+    Title = "All set",
+    Content = "Your settings were saved.",
     Duration = 4,
     Color = Library.Theme.Accent,
 })
 ```
 
-### Pela biblioteca
+### Through the library
 
-`Library:Notify` envia a notificação para a última janela criada e ainda ativa:
+`Library:Notify` sends the notification to the most recently created, still-active window:
 
 ```lua
 Library:Notify({
-    Title = "Aviso",
-    Content = "Essa é uma notificação global.",
+    Title = "Heads up",
+    Content = "This is a global notification.",
 })
 ```
 
-### Opções
+### Options
 
-| Propriedade | Tipo | Padrão | Descrição |
+| Property | Type | Default | Description |
 |---|---:|---:|---|
-| `Title` | `string?` | — | Título opcional. |
-| `Content` | `string` | `Notificação` | Conteúdo principal. |
-| `Duration` | `number` | `4` | Tempo em segundos. Mínimo de `0.5`. |
-| `Color` | `Color3` | `Theme.Accent` | Cor do indicador e da barra de progresso. |
+| `Title` | `string?` | — | Optional title. |
+| `Content` | `string` | `Notification` | Main content. |
+| `Duration` | `number` | `4` | Time in seconds. Minimum of `0.5`. |
+| `Color` | `Color3` | `Theme.Accent` | Color of the indicator and progress bar. |
 
-Para fechar antes do tempo:
+To dismiss early:
 
 ```lua
 Notification:Dismiss()
@@ -741,15 +933,15 @@ Notification:Dismiss()
 
 ---
 
-## 📐 Responsividade e escala
+## 📐 Responsiveness and Scaling
 
-A biblioteca calcula a escala final usando:
+The library calculates the final scale using:
 
-- Tamanho base da janela.
-- Escala escolhida pelo usuário.
-- Resolução atual da câmera.
-- Margem configurada para o viewport.
-- Limite de escala automática.
+- Base window size.
+- Scale chosen by the user.
+- Current camera resolution.
+- Configured viewport margin.
+- Auto-scale cap.
 
 ```lua
 Window:SetScale(1.2)
@@ -759,55 +951,62 @@ print(Window:GetScale())
 print(Window:GetEffectiveScale())
 ```
 
-`GetScale()` retorna a escala solicitada pelo usuário. `GetEffectiveScale()` retorna a escala realmente aplicada após o ajuste ao viewport.
+`GetScale()` returns the scale the user asked for. `GetEffectiveScale()` returns the scale actually applied after fitting the viewport.
 
-### Controles internos
+### Built-in controls
 
-A topbar possui:
+The topbar has:
 
-- Botão `-` para reduzir a escala.
-- Indicador percentual.
-- Botão `+` para aumentar a escala.
-- Botão `×` para ocultar ou destruir a UI.
+- `-` button to shrink the scale.
+- Percentage indicator.
+- `+` button to grow the scale.
+- `×` button to hide or destroy the UI.
 
-### Comportamento responsivo
+### Responsive behavior
 
-- A janela é mantida dentro da área visível da tela.
-- A sidebar fica mais estreita em viewports menores.
-- A barra inferior recalcula a área de conteúdo.
-- Textos longos são truncados onde necessário.
-- Tabs, páginas e dropdowns utilizam rolagem quando necessário.
-- O arrasto funciona com mouse e toque.
+- The window stays inside the visible screen area.
+- The sidebar gets narrower on smaller viewports.
+- The bottom bar recalculates the content area.
+- Long text truncates where needed.
+- Tabs, pages and dropdowns scroll when needed.
+- Dragging works with both mouse and touch.
 
 ---
 
-## 🎨 Tema
+## 🎨 Theme
 
-O tema pode ser acessado por:
+Access the theme through:
 
 ```lua
 print(Library.Theme.Accent)
 ```
 
-### Paleta padrão
+### Default palette
 
-| Campo | Cor |
+| Field | Color |
 |---|---|
-| `Background` | `#121212` |
-| `Sidebar` | `#181818` |
-| `Card` | `#1E1E1E` |
-| `CardHover` | `#282828` |
-| `Input` | `#252525` |
+| `Background` | `#0F0F0F` |
+| `BackgroundAlt` | `#121212` |
+| `Sidebar` | `#161616` |
+| `Panel` | `#191919` |
+| `Card` | `#1F1F1F` |
+| `CardHover` | `#272727` |
+| `CardPressed` | `#222222` |
+| `Input` | `#242424` |
+| `InputHover` | `#2A2A2A` |
 | `Accent` | `#1DB954` |
 | `AccentHover` | `#1ED760` |
+| `AccentSoft` | `#177A3B` |
 | `Text` | `#FFFFFF` |
 | `Subtext` | `#B3B3B3` |
-| `Stroke` | `#3A3A3A` |
-| `Divider` | `#303030` |
-| `Selected` | `#242424` |
+| `Muted` | `#7E7E7E` |
+| `Stroke` | `#434343` |
+| `Outline` | `#484848` |
+| `Divider` | `#363636` |
+| `Selected` | `#262626` |
 | `Danger` | `#E84855` |
 
-Exemplo:
+Example:
 
 ```lua
 Section:CreateLabel({
@@ -818,69 +1017,72 @@ Section:CreateLabel({
 ```
 
 > [!WARNING]
-> `Library.Theme` expõe a tabela atual, mas os componentes já criados não são atualizados automaticamente quando uma cor é alterada depois da criação.
+> `Library.Theme` exposes the live table, but components already created won't update automatically if you change a color afterward.
 
 ---
 
-## 🧹 Limpeza e destruição
+## 🧹 Cleanup and Destruction
 
-A biblioteca possui um sistema interno de limpeza para conexões, threads, instâncias e objetos temporários.
+The library has an internal cleanup system for connections, threads, instances and temporary objects.
 
-### Destruir um componente
+### Destroying a component
 
 ```lua
 Toggle:Destroy()
 ```
 
-### Destruir uma section
+### Destroying a section
 
 ```lua
 Section:Destroy()
 ```
 
-### Destruir uma tab
+### Destroying a tab
 
 ```lua
 Tab:Destroy()
 ```
 
-### Destruir uma janela
+### Destroying a window
 
 ```lua
 Window:Destroy()
 ```
 
-### Destruir todas as janelas
+### Destroying every window
 
 ```lua
 Library:DestroyAll()
 ```
 
-Depois que um componente é destruído:
+After a component is destroyed:
 
 ```lua
 print(Component:IsDestroyed()) -- true
 ```
 
 > [!CAUTION]
-> Não continue chamando métodos de tabs ou sections depois de destruí-las.
+> Don't keep calling methods on tabs or sections after destroying them.
 
 ---
 
-## 💻 Exemplo completo
+## 💻 Full Example
 
 ```lua
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Library = require(ReplicatedStorage:WaitForChild("SpotifyUILibrary"))
 
 local Window = Library:CreateWindow({
-    Title = "Meu Menu",
+    Title = "My Menu",
     Subtitle = "Spotify UI Library",
     Size = Vector2.new(940, 590),
     Scale = 1,
     AutoScale = true,
     Keybind = Enum.KeyCode.RightShift,
     ShowNowPlaying = true,
+    ShowSessionTimer = true,
+    SessionTimerDuration = 3600,
+    SessionTimerText = "Time open",
     CloseBehavior = "Hide",
 })
 
@@ -889,26 +1091,26 @@ local HomeTab = Window:CreateTab({
     Icon = "⌂",
 })
 
-local Controls = HomeTab:CreateSection("Controles principais")
+local Controls = HomeTab:CreateSection("Main controls")
 
 Controls:CreateButton({
-    Text = "Exibir notificação",
-    Description = "Abre um toast no canto da tela.",
+    Text = "Show notification",
+    Description = "Opens a toast in the bottom-right corner.",
     Callback = function()
         Window:Notify({
             Title = "Spotify UI",
-            Content = "O botão foi pressionado com sucesso.",
+            Content = "The button was pressed successfully.",
             Duration = 3,
         })
     end,
 })
 
 local MusicToggle = Controls:CreateToggle({
-    Text = "Música ativada",
-    Description = "Liga ou desliga a música do jogo.",
+    Text = "Music enabled",
+    Description = "Turns the game music on/off.",
     Default = true,
     Callback = function(enabled)
-        print("Música:", enabled)
+        print("Music:", enabled)
     end,
 })
 
@@ -925,202 +1127,124 @@ local VolumeSlider = Controls:CreateSlider({
 })
 
 local QualityDropdown = Controls:CreateDropdown({
-    Text = "Qualidade",
-    Options = { "Baixa", "Média", "Alta", "Ultra" },
-    Default = "Alta",
+    Text = "Quality",
+    Options = { "Low", "Medium", "High", "Ultra" },
+    Default = "High",
     Callback = function(value)
-        print("Qualidade:", value)
+        print("Quality:", value)
     end,
 })
 
 local PlaylistInput = Controls:CreateInput({
-    Text = "Nome da playlist",
-    Placeholder = "Minha playlist...",
+    Text = "Playlist name",
+    Placeholder = "My playlist...",
     Callback = function(text, enterPressed)
         print("Playlist:", text, enterPressed)
     end,
 })
 
 local AboutTab = Window:CreateTab({
-    Name = "Sobre",
+    Name = "About",
     Icon = "i",
 })
 
 AboutTab:CreateParagraph({
     Title = "Spotify UI Library",
-    Content = "Uma biblioteca visual para Roblox escrita em Luau.",
+    Content = "A visual library for Roblox written in Luau.",
 })
 
 AboutTab:CreateLabel({
-    Text = "Versão " .. Library.Version,
+    Text = "Version " .. Library.Version,
     Bold = true,
     Color = Library.Theme.AccentHover,
 })
 
 local SettingsTab = Window:GetSettingsTab()
-local SettingsInfo = SettingsTab:CreateSection("Informações")
+local SettingsInfo = SettingsTab:CreateSection("Info")
 
 SettingsInfo:CreateLabel({
-    Text = "O keybind é mantido somente durante a sessão atual.",
+    Text = "The keybind only persists for the current session.",
     Color = Library.Theme.Subtext,
 })
 ```
 
 ---
 
-# 📜 Update Logs
+## 🛠️ Common Issues
 
-Esta seção registra as mudanças de cada versão. Mantenha a versão mais recente no topo.
+### `Players.LocalPlayer` is `nil`
 
-## `v1.1.0` — 17/07/2026
+The library is running on the server. Move the init code to a `LocalScript`.
 
-### ✨ Adicionado
+### The interface doesn't show up
 
-- Tab `Settings` automática e separada na parte inferior da sidebar.
-- Componente `Keybind Picker`.
-- Keybind padrão `RightShift` para abrir e fechar a UI.
-- Barra inferior “Now Playing” com informações da experiência.
-- Ícones nas tabs da sidebar.
-- Indicador verde na tab selecionada.
-- Métodos de destruição para componentes, sections e tabs.
-- APIs `SetGameInfo`, `SetNowPlayingVisible`, `SetKeybind` e `GetKeybind`.
+Check that:
 
-### 🔧 Alterado
+- The ModuleScript is in `ReplicatedStorage`.
+- The name you're using in `WaitForChild` is correct.
+- The LocalScript is in `StarterPlayerScripts` or `StarterGui`.
+- No earlier error interrupted the script.
 
-- O botão de fechar agora usa `CloseBehavior = "Hide"` por padrão.
-- A sidebar recebeu espaçamento e hierarquia visual mais próximos do Spotify.
-- O layout responsivo agora reserva corretamente o espaço da barra inferior.
-- A largura da sidebar se adapta a viewports menores.
+### The window closes and doesn't come back
 
-### 🐛 Corrigido
-
-- Conexões antigas de opções do dropdown ao reconstruir a lista.
-- Elementos que podiam ultrapassar ou ficar atrás da barra inferior.
-- Arrasto incorreto quando a janela estava escalada.
-- Sombra desalinhada em relação à posição, tamanho ou escala da janela.
-- Notificações e tarefas temporárias que podiam permanecer após destruir a UI.
-- Referências de componentes, tabs e sections já destruídos.
-- Keybind disparando durante captura de tecla ou digitação em `TextBox`.
-
-<details>
-<summary><strong>v1.0.0 — Primeira versão</strong></summary>
-
-### ✨ Adicionado
-
-- Janela principal com tema Spotify.
-- Sidebar e sistema de tabs.
-- Sections.
-- Button, Toggle, Slider, Dropdown, Input, Label e Paragraph.
-- Notificações.
-- Escala manual e automática.
-- Arrasto por mouse e toque.
-- Sistema interno de limpeza de conexões.
-
-</details>
-
----
-
-### Sugestão de versionamento
-
-Use o formato `MAJOR.MINOR.PATCH`:
-
-| Parte | Quando alterar | Exemplo |
-|---|---|---|
-| `MAJOR` | Mudanças incompatíveis com versões anteriores. | `1.4.2` → `2.0.0` |
-| `MINOR` | Novas features compatíveis. | `1.4.2` → `1.5.0` |
-| `PATCH` | Correções de bugs e pequenos ajustes. | `1.4.2` → `1.4.3` |
-
-Sempre atualize também a versão dentro do ModuleScript:
-
-```lua
-local Library = {
-    Version = "1.2.0",
-    _windows = {},
-    _windowCounter = 0,
-}
-```
-
-### Convenção recomendada para commits ou releases
-
-```text
-feat: adiciona componente ColorPicker
-fix: corrige escala da sidebar em mobile
-refactor: reorganiza sistema de cleanup
-style: ajusta padding dos cards
-docs: atualiza README e exemplos
-```
-
----
-
-## 🛠️ Problemas comuns
-
-### `Players.LocalPlayer` é `nil`
-
-A biblioteca está sendo executada no servidor. Mova o código de inicialização para um `LocalScript`.
-
-### A interface não aparece
-
-Confirme que:
-- Nenhum erro anterior interrompeu o script.
-
-### A janela fecha e não volta
-
-Caso esteja usando:
+If you're using:
 
 ```lua
 CloseBehavior = "Destroy"
 ```
 
-A janela é removida completamente. Use o padrão `"Hide"` para reabri-la pelo keybind.
+the window gets fully removed. Use the default `"Hide"` if you want to reopen it via the keybind.
 
-### O keybind não funciona
+### The keybind isn't working
 
-Verifique:
+Check whether:
 
-- Se o keybind não foi removido com `SetKeybind(nil)`.
-- Se o jogador não está digitando em um `TextBox`.
-- Se outro Keybind Picker não está escutando.
-- Se o input não foi consumido por outra interface do jogo.
+- The keybind was removed with `SetKeybind(nil)`.
+- The player is typing in a `TextBox`.
+- Another Keybind Picker is currently listening.
+- The input was consumed by another UI in the game.
 
-### A janela parece menor que a escala configurada
+### The window looks smaller than the scale I set
 
-Com `AutoScale = true`, a biblioteca pode reduzir a escala para manter a janela dentro do viewport. Compare:
+With `AutoScale = true`, the library can shrink the scale to keep the window inside the viewport. Compare:
 
 ```lua
 print(Window:GetScale())
 print(Window:GetEffectiveScale())
 ```
 
-### O nome ou criador do jogo não carregou
+### Game name or creator didn't load
 
-Você pode informar os dados manualmente:
+You can set the info manually:
 
 ```lua
 Window:SetGameInfo({
-    Name = "Nome do jogo",
-    Creator = "Nome do criador",
+    Name = "Game name",
+    Creator = "Creator name",
     Icon = "rbxassetid://123456789",
 })
 ```
 
-### Um componente não é mais necessário
+### A component isn't needed anymore
 
-Destrua-o para remover a interface e suas conexões:
+Destroy it to remove the interface and its connections:
 
 ```lua
 Component:Destroy()
 ```
 
-## 📄 Licença
+---
 
-Nenhuma licença foi definida neste pacote. Antes de publicar a biblioteca em um repositório público, adicione um arquivo `LICENSE` com os termos de uso desejados.
+## 📄 License
+
+No license has been set for this package yet. Add a `LICENSE` file with the terms you want before publishing this library publicly.
 
 ---
 
 <div align="center">
 
-Feito em **Luau** para **Roblox** com inspiração visual no **Spotify**.
+Made in **Luau** for **Roblox**, visually inspired by **Spotify**.
 
-`Spotify UI Library v1.1.0`
+`Spotify UI Library v1.4.0`
 
 </div>
