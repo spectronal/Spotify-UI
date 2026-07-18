@@ -82,8 +82,11 @@ Changes for every version, newest on top.
 - Notification `UIStroke` blending visually with the progress bar.
 - Opacity tween keeping stale references after a notification was dismissed early.
 
+<<<<<<< HEAD:ReadMe.md
 </details>
 
+=======
+>>>>>>> e092f5c3ce67f3ab4922792d55d0f4e03d29eac8:README.md
 <details>
 <summary><strong>v1.4.0 — 07/17/2026</strong></summary>
 
