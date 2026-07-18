@@ -6,7 +6,6 @@
 
 <img alt="Version" src="https://img.shields.io/badge/version-1.5.0-1DB954?style=for-the-badge">
 <img alt="Luau" src="https://img.shields.io/badge/Luau-Roblox-00A2FF?style=for-the-badge&logo=roblox">
-<img alt="Client" src="https://img.shields.io/badge/runs%20on-LocalScript-181818?style=for-the-badge">
 <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-none-1DB954?style=for-the-badge">
 
 <br><br>
