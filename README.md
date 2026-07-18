@@ -4,7 +4,7 @@
 
 ### A modern Roblox UI library written in Luau, styled after Spotify's look.
 
-<img alt="Version" src="https://img.shields.io/badge/version-1.7.0-1DB954?style=for-the-badge">
+<img alt="Version" src="https://img.shields.io/badge/version-1.8.0-1DB954?style=for-the-badge">
 <img alt="Luau" src="https://img.shields.io/badge/Luau-Roblox-00A2FF?style=for-the-badge&logo=roblox">
 <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-none-1DB954?style=for-the-badge">
 
@@ -24,7 +24,24 @@ Spotify UI Library is a Roblox interface library built around a simple API, a co
 
 Changes for every version, newest on top.
 
-## `v1.7.0` — 07/18/2026
+## `v1.8.0` — 07/18/2026
+
+### 🔧 Changed
+
+- Mini player shrank further to `300 × 156`, still keeping controls, timer and dragging.
+- Switching between the full window and the mini player now uses atomic visibility: every layer disappears or comes back on the same frame.
+- The Settings panel animation now uses horizontal offset only, dropping the `CanvasGroup` and the internal fade.
+
+### 🐛 Fixed
+
+- Window content disappearing at different times during minimize.
+- Empty window rectangle staying visible during the transition.
+- Mini player stroke losing its rounded corners.
+- Settings panel getting partially clipped or split while sliding in.
+- Settings panel border turning square mid-tween.
+
+<details>
+<summary><strong>v1.7.0 — 07/18/2026</strong></summary>
 
 ### ✨ Added
 
@@ -52,6 +69,8 @@ Changes for every version, newest on top.
 - Selected Dropdown option border getting clipped or turning square.
 - Dropdown selector hover removing the green stroke while the list was still open.
 - Notifications overlapping the mini player in the bottom-right corner.
+
+</details>
 
 <details>
 <summary><strong>v1.6.0 — 07/18/2026</strong></summary>
@@ -1371,6 +1390,6 @@ No license has been set for this package yet. Add a `LICENSE` file with the term
 
 Made in **Luau** for **Roblox**, visually inspired by **Spotify**.
 
-`Spotify UI Library v1.7.0`
+`Spotify UI Library v1.8.0`
 
 </div>

@@ -1,8 +1,7 @@
 -- Spotify UI Library Example
 
-local Library = loadstring(
-	game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/SpotifyUILibrary.lua")
-)()
+local Library =
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/Source.lua"))()
 
 local Window = Library:CreateWindow({
 	Title = "Meu Menu",
