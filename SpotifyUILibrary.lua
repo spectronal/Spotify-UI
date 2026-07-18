@@ -1,4 +1,4 @@
--- SpotifyUI Library v1.4.0
+-- Spotify UI Library 1.5.0v
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8,7 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Library = {
-	Version = "1.4.0",
+	Version = "1.5.0",
 	_windows = {},
 	_windowCounter = 0,
 }
@@ -2131,11 +2131,17 @@ function WindowMethods:_updateResponsiveScale(animated)
 		self._gameStatus.Position = UDim2.new(1, -18, 0.5, 0)
 	end
 
-	local showGameStatus = self._nowPlayingVisible and logicalViewportWidth >= 790
+	local windowLogicalWidth = self._baseSize.X
+	local showGameStatus = self._nowPlayingVisible and windowLogicalWidth >= 860
 	self._gameStatus.Visible = showGameStatus
-	local gameTextRightPadding = showGameStatus and 270 or 108
-	self._gameNameLabel.Size = UDim2.new(1, -gameTextRightPadding, 0, 25)
-	self._gameCreatorLabel.Size = UDim2.new(1, -gameTextRightPadding, 0, 20)
+	self._scaleControls.Visible = self._nowPlayingVisible
+
+	-- A coluna de informações termina antes dos controles centrais. O cálculo
+	-- usa a largura lógica da janela, não a largura total do monitor, evitando
+	-- sobreposição em monitores grandes com uma janela de tamanho padrão.
+	local gameTextWidth = math.max(math.floor(windowLogicalWidth * 0.5 - 190), 118)
+	self._gameNameLabel.Size = UDim2.fromOffset(gameTextWidth, 25)
+	self._gameCreatorLabel.Size = UDim2.fromOffset(gameTextWidth, 20)
 
 	self:_syncWindowLayers()
 	self:_clampToViewport(viewport, effectiveScale)
@@ -2461,52 +2467,75 @@ function WindowMethods:Notify(config)
 
 	self._notificationCounter += 1
 
-	-- UIListLayout controla somente o slot. O toast anima dentro dele sem ter
-	-- sua Position sobrescrita pelo layout a cada frame.
+	-- O layout move apenas o slot. A notificação anima dentro dele, então o
+	-- UIListLayout nunca disputa a propriedade Position com os tweens.
 	local slot = create("Frame", {
 		Name = "NotificationSlot",
-		Size = UDim2.fromOffset(310, toastHeight),
+		Size = UDim2.fromOffset(326, toastHeight + 8),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
+		ClipsDescendants = false,
 		LayoutOrder = self._notificationCounter,
 		ZIndex = 101,
 		Parent = self._notificationContainer,
 	})
 	toastMaid:Give(slot)
 
+	-- CanvasGroup transparente apenas para animação de posição e opacidade.
+	-- A superfície visual fica separada, impedindo que ClipsDescendants corte
+	-- o UIStroke ou transforme os cantos arredondados em cantos quadrados.
 	local toast = create("CanvasGroup", {
 		Name = "Notification",
-		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, 26, 0, 0),
+		Position = UDim2.fromOffset(30, 0),
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Theme.Sidebar,
-		BackgroundTransparency = 0,
+		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ClipsDescendants = true,
+		ClipsDescendants = false,
 		GroupTransparency = 1,
 		ZIndex = 102,
 		Parent = slot,
 	})
-	addCorner(toast, PANEL_CORNER_RADIUS)
-	addGradient(toast, Color3.fromRGB(27, 27, 27), Color3.fromRGB(20, 20, 20), 90)
 
-	-- Borda interna: o stroke inteiro permanece dentro do toast e não perde
-	-- pixels nos cantos arredondados ou nas bordas da tela.
-	addInsetStroke(toast, PANEL_CORNER_RADIUS, Theme.Stroke, 0.28, 2, 106)
+	local shadow = create("Frame", {
+		Name = "Shadow",
+		Position = UDim2.fromOffset(3, 6),
+		Size = UDim2.new(1, -6, 1, -8),
+		BackgroundColor3 = Theme.Shadow,
+		BackgroundTransparency = 0.52,
+		BorderSizePixel = 0,
+		ZIndex = 102,
+		Parent = toast,
+	})
+	addCorner(shadow, PANEL_CORNER_RADIUS + 1)
+
+	local surface = create("Frame", {
+		Name = "Surface",
+		Position = UDim2.fromOffset(3, 2),
+		Size = UDim2.new(1, -6, 1, -8),
+		BackgroundColor3 = Theme.Sidebar,
+		BackgroundTransparency = 0,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		ZIndex = 103,
+		Parent = toast,
+	})
+	addCorner(surface, PANEL_CORNER_RADIUS)
+	addGradient(surface, Color3.fromRGB(27, 27, 27), Color3.fromRGB(18, 18, 18), 90)
+	addStroke(surface, Theme.Stroke, 0.18, 2)
 
 	local accent = create("Frame", {
-		Position = UDim2.fromOffset(11, 12),
+		Position = UDim2.fromOffset(10, 12),
 		Size = UDim2.new(0, 3, 1, -24),
 		BackgroundColor3 = config.Color or Theme.Accent,
 		BorderSizePixel = 0,
-		ZIndex = 103,
-		Parent = toast,
+		ZIndex = 104,
+		Parent = surface,
 	})
 	addCorner(accent, 2)
 
 	local y = 12
 	if config.Title then
-		makeTextLabel(toast, {
+		makeTextLabel(surface, {
 			Position = UDim2.fromOffset(24, y),
 			Size = UDim2.new(1, -62, 0, 20),
 			Font = Enum.Font.GothamBold,
@@ -2514,12 +2543,12 @@ function WindowMethods:Notify(config)
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextSize = 14,
 			TextTruncate = Enum.TextTruncate.AtEnd,
-			ZIndex = 104,
+			ZIndex = 105,
 		})
 		y = 38
 	end
 
-	makeTextLabel(toast, {
+	makeTextLabel(surface, {
 		Position = UDim2.fromOffset(24, y),
 		Size = UDim2.new(1, -62, 0, config.Title and 38 or 44),
 		Text = tostring(config.Content or config.Text or "Notificação"),
@@ -2529,10 +2558,10 @@ function WindowMethods:Notify(config)
 		TextSize = 12,
 		TextWrapped = true,
 		TextTruncate = Enum.TextTruncate.AtEnd,
-		ZIndex = 104,
+		ZIndex = 105,
 	})
 
-	local closeButton = makeTextButton(toast, {
+	local closeButton = makeTextButton(surface, {
 		Position = UDim2.new(1, -36, 0, 8),
 		Size = UDim2.fromOffset(28, 28),
 		BackgroundTransparency = 1,
@@ -2544,13 +2573,13 @@ function WindowMethods:Notify(config)
 
 	local progressTrack = create("Frame", {
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 12, 1, -7),
+		Position = UDim2.new(0, 12, 1, -9),
 		Size = UDim2.new(1, -24, 0, 2),
 		BackgroundColor3 = Theme.Track,
 		BackgroundTransparency = 0.55,
 		BorderSizePixel = 0,
-		ZIndex = 104,
-		Parent = toast,
+		ZIndex = 105,
+		Parent = surface,
 	})
 	addCorner(progressTrack, 1)
 
@@ -2558,7 +2587,7 @@ function WindowMethods:Notify(config)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = config.Color or Theme.Accent,
 		BorderSizePixel = 0,
-		ZIndex = 105,
+		ZIndex = 106,
 		Parent = progressTrack,
 	})
 	addCorner(progress, 1)
@@ -2571,8 +2600,9 @@ function WindowMethods:Notify(config)
 
 		local tween = playTween(toast, FADE_TWEEN_INFO, {
 			GroupTransparency = 1,
-			Position = UDim2.new(1, 26, 0, 0),
+			Position = UDim2.fromOffset(30, 0),
 		})
+		toastMaid:Give(tween)
 		toastMaid:Give(tween.Completed:Connect(function()
 			self._maid:Forget(rootTaskId)
 			toastMaid:Cleanup()
@@ -2581,19 +2611,19 @@ function WindowMethods:Notify(config)
 
 	toastMaid:Give(closeButton.MouseButton1Click:Connect(dismiss))
 	toastMaid:Give(closeButton.MouseEnter:Connect(function()
-		closeButton.TextColor3 = Theme.Text
+		playTween(closeButton, FAST_TWEEN_INFO, { TextColor3 = Theme.Text })
 	end))
 	toastMaid:Give(closeButton.MouseLeave:Connect(function()
-		closeButton.TextColor3 = Theme.Subtext
+		playTween(closeButton, FAST_TWEEN_INFO, { TextColor3 = Theme.Subtext })
 	end))
 
-	playTween(toast, POP_TWEEN_INFO, {
+	toastMaid:Give(playTween(toast, POP_TWEEN_INFO, {
 		GroupTransparency = 0,
-		Position = UDim2.new(1, 0, 0, 0),
-	})
-	playTween(progress, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
+		Position = UDim2.fromOffset(0, 0),
+	}))
+	toastMaid:Give(playTween(progress, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
 		Size = UDim2.new(0, 0, 1, 0),
-	})
+	}))
 	toastMaid:Give(task.delay(duration, dismiss))
 
 	return {
@@ -2903,7 +2933,7 @@ function Library:CreateWindow(config)
 
 	local currentTabLabel = makeTextLabel(topbar, {
 		Position = UDim2.fromOffset(18, -3),
-		Size = UDim2.new(1, -220, 1, 0),
+		Size = UDim2.new(1, -82, 1, 0),
 		Font = Enum.Font.GothamBold,
 		Text = "",
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -2925,7 +2955,7 @@ function Library:CreateWindow(config)
 
 	local dragHandle = create("Frame", {
 		Name = "DragHandle",
-		Size = UDim2.new(1, -205, 1, 0),
+		Size = UDim2.new(1, -62, 1, 0),
 		BackgroundTransparency = 1,
 		Active = true,
 		ZIndex = 6,
@@ -3029,6 +3059,45 @@ function Library:CreateWindow(config)
 		Parent = nowPlaying,
 	})
 
+	-- Os controles de escala saem da topbar e ocupam a área central da barra
+	-- inferior, seguindo a hierarquia visual dos controles de reprodução do
+	-- Spotify: diminuir à esquerda, valor atual no centro e aumentar à direita.
+	local scaleControls = create("Frame", {
+		Name = "ScaleControls",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, 0, 0, 10),
+		Size = UDim2.fromOffset(178, 42),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ZIndex = 23,
+		Parent = nowPlaying,
+	})
+
+	scaleMinus.Parent = scaleControls
+	scaleMinus.Position = UDim2.fromOffset(4, 4)
+	scaleMinus.Size = UDim2.fromOffset(34, 34)
+	scaleMinus.BackgroundColor3 = Theme.PanelAlt
+	scaleMinus.TextColor3 = Theme.Subtext
+	scaleMinus.ZIndex = 24
+
+	scaleLabel.Parent = scaleControls
+	scaleLabel.Position = UDim2.fromOffset(54, 4)
+	scaleLabel.Size = UDim2.fromOffset(70, 34)
+	scaleLabel.BackgroundColor3 = Theme.Text
+	scaleLabel.BackgroundTransparency = 0
+	scaleLabel.TextColor3 = Theme.Background
+	scaleLabel.TextSize = 11
+	scaleLabel.ZIndex = 24
+	addCorner(scaleLabel, 17)
+	addStroke(scaleLabel, Theme.Stroke, 0.7, 2)
+
+	scalePlus.Parent = scaleControls
+	scalePlus.Position = UDim2.fromOffset(140, 4)
+	scalePlus.Size = UDim2.fromOffset(34, 34)
+	scalePlus.BackgroundColor3 = Theme.PanelAlt
+	scalePlus.TextColor3 = Theme.Subtext
+	scalePlus.ZIndex = 24
+
 	local gameIconHolder = create("Frame", {
 		Name = "GameIconHolder",
 		Position = UDim2.fromOffset(14, 11),
@@ -3071,7 +3140,7 @@ function Library:CreateWindow(config)
 	local gameNameLabel = makeTextLabel(nowPlaying, {
 		Name = "GameName",
 		Position = UDim2.fromOffset(88, 15),
-		Size = UDim2.new(1, -270, 0, 25),
+		Size = UDim2.new(0.5, -190, 0, 25),
 		Font = Enum.Font.GothamBold,
 		Text = tostring(config.GameName or game.Name or "Experiência Roblox"),
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -3083,7 +3152,7 @@ function Library:CreateWindow(config)
 	local gameCreatorLabel = makeTextLabel(nowPlaying, {
 		Name = "GameCreator",
 		Position = UDim2.fromOffset(88, 42),
-		Size = UDim2.new(1, -270, 0, 20),
+		Size = UDim2.new(0.5, -190, 0, 20),
 		Text = tostring(config.GameCreator or "Criador do jogo"),
 		TextColor3 = Theme.Subtext,
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -3313,6 +3382,7 @@ function Library:CreateWindow(config)
 		_topbarAccent = topbarAccent,
 		_pageContainer = pageContainer,
 		_scaleLabel = scaleLabel,
+		_scaleControls = scaleControls,
 		_nowPlaying = nowPlaying,
 		_gameIcon = gameIcon,
 		_gameNameLabel = gameNameLabel,
@@ -3374,17 +3444,29 @@ function Library:CreateWindow(config)
 	end))
 
 	bindInteractiveSurface(scaleMinus, maid, scaleMinus, scaleMinusStroke, scaleMinusScale, {
-		NormalColor = Theme.Card,
+		NormalColor = Theme.PanelAlt,
 		HoverColor = Theme.CardHover,
 		StrokeTransparency = 0.78,
 		HoverStrokeTransparency = 0.48,
 	})
 	bindInteractiveSurface(scalePlus, maid, scalePlus, scalePlusStroke, scalePlusScale, {
-		NormalColor = Theme.Card,
+		NormalColor = Theme.PanelAlt,
 		HoverColor = Theme.CardHover,
 		StrokeTransparency = 0.78,
 		HoverStrokeTransparency = 0.48,
 	})
+	maid:Give(scaleMinus.MouseEnter:Connect(function()
+		playTween(scaleMinus, FAST_TWEEN_INFO, { TextColor3 = Theme.AccentHover })
+	end))
+	maid:Give(scaleMinus.MouseLeave:Connect(function()
+		playTween(scaleMinus, FAST_TWEEN_INFO, { TextColor3 = Theme.Subtext })
+	end))
+	maid:Give(scalePlus.MouseEnter:Connect(function()
+		playTween(scalePlus, FAST_TWEEN_INFO, { TextColor3 = Theme.AccentHover })
+	end))
+	maid:Give(scalePlus.MouseLeave:Connect(function()
+		playTween(scalePlus, FAST_TWEEN_INFO, { TextColor3 = Theme.Subtext })
+	end))
 	bindInteractiveSurface(closeButton, maid, closeButton, closeStroke, closeScale, {
 		NormalColor = Theme.Card,
 		HoverColor = Theme.Danger,

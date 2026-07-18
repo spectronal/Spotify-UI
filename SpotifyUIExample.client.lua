@@ -5,8 +5,8 @@ local Library = loadstring(
 )()
 
 local Window = Library:CreateWindow({
-	Title = "Meu Menu",
-	Subtitle = "Spotify UI Library",
+	Title = "Spotify UI Example",
+	Subtitle = "By Spectronal",
 	Size = Vector2.new(940, 590),
 	Scale = 1,
 	AutoScale = true,
@@ -85,7 +85,7 @@ local AboutTab = Window:CreateTab({
 })
 AboutTab:CreateParagraph({
 	Title = "Spotify UI Library",
-	Content = "A janela se adapta ao ViewportSize. Use os botões - e +, Window:SetScale() ou pressione RightShift para ocultar e reabrir o menu.",
+	Content = "A janela se adapta ao ViewportSize. Use os controles de escala na barra inferior, Window:SetScale() ou pressione RightShift para ocultar e reabrir o menu.",
 })
 AboutTab:CreateLabel({
 	Text = "Versão " .. Library.Version,

@@ -4,7 +4,7 @@
 
 ### A modern Roblox UI library written in Luau, styled after Spotify's look.
 
-<img alt="Version" src="https://img.shields.io/badge/version-1.4.0-1DB954?style=for-the-badge">
+<img alt="Version" src="https://img.shields.io/badge/version-1.5.0-1DB954?style=for-the-badge">
 <img alt="Luau" src="https://img.shields.io/badge/Luau-Roblox-00A2FF?style=for-the-badge&logo=roblox">
 <img alt="Client" src="https://img.shields.io/badge/runs%20on-LocalScript-181818?style=for-the-badge">
 <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-none-1DB954?style=for-the-badge">
@@ -24,6 +24,29 @@ Spotify UI Library is a Roblox interface library built around a simple API, a co
 # 📜 Update Logs
 
 Changes for every version, newest on top.
+
+## `v1.5.0` — 07/17/2026
+
+### ✨ Added
+
+- Central scale control group on the Now Playing bar, inspired by Spotify's rewind/play/forward buttons.
+- Percentage indicator with a white background at the center of the group, staying readable against the dark theme.
+- Green hover state on the scale-down and scale-up buttons.
+- Each notification now has its own dedicated shadow.
+
+### 🔧 Changed
+
+- The `-`, percentage and `+` controls moved from the topbar down to the bottom bar.
+- The topbar now reserves more room for the tab title and only keeps the close button.
+- Game name and creator width is now clamped before the central controls to prevent overlap.
+- Notifications still stack in the bottom-right corner, but the layout now only manages transparent slots.
+
+### 🐛 Fixed
+
+- Notification border getting clipped by `ClipsDescendants` and the `CanvasGroup`.
+- Square corners showing up when the gradient, accent stripe or duration bar reached the edge of the toast.
+- Notification `UIStroke` blending visually with the progress bar.
+- Opacity tween keeping stale references after a notification was dismissed early.
 
 ## `v1.4.0` — 07/17/2026
 
@@ -146,72 +169,11 @@ Changes for every version, newest on top.
 
 </details>
 
-### 📝 Adding a new Update Log entry
-
-Copy the template below, paste it **above the previous version**, and fill in the blanks:
-
-```md
-## `vX.Y.Z` — MM/DD/YYYY
-
-### ✨ Added
-
-- New feature.
-- New component or API.
-
-### 🔧 Changed
-
-- Updated behavior.
-- Visual tweak or API change.
-
-### 🐛 Fixed
-
-- Bug fix.
-- Responsiveness issue solved.
-
-### 🗑️ Removed
-
-- Feature removed or deprecated.
-
-### ⚠️ Breaking Changes
-
-- Change that requires updating code on the consumer side.
-```
-
-Versioning follows `MAJOR.MINOR.PATCH`:
-
-| Part | Bump when | Example |
-|---|---|---|
-| `MAJOR` | Breaking changes | `1.4.2` → `2.0.0` |
-| `MINOR` | New backwards-compatible features | `1.4.2` → `1.5.0` |
-| `PATCH` | Bug fixes and small tweaks | `1.4.2` → `1.4.3` |
-
-Don't forget to bump the version inside the ModuleScript too:
-
-```lua
-local Library = {
-    Version = "1.2.0",
-    _windows = {},
-    _windowCounter = 0,
-}
-```
-
-Suggested commit/release convention:
-
-```text
-feat: add ColorPicker component
-fix: fix sidebar scale on mobile
-refactor: reorganize cleanup system
-style: adjust card padding
-docs: update README and examples
-```
-
 ---
 
 ## 📚 Table of Contents
 
 - [Features](#-features)
-- [Requirements](#-requirements)
-- [Installation](#-installation)
 - [Quick Start](#-quick-start)
 - [API Structure](#-api-structure)
 - [Window Setup](#-window-setup)
@@ -241,7 +203,7 @@ docs: update README and examples
 - Bottom bar showing the experience's icon, name and creator.
 - Session timer with a progress bar styled after Spotify's timeline.
 - Draggable window (mouse and touch).
-- Manual scaling via `-` / `+` buttons.
+- Manual scaling via the center controls on the bottom bar (`-`, percentage, `+`).
 - Automatic scaling based on `ViewportSize`.
 - Works across different resolutions and aspect ratios.
 - Auto-scrolling tabs and pages.
@@ -267,27 +229,6 @@ docs: update README and examples
 | `Paragraph` | Title + multi-line content. |
 | `Keybind Picker` | Captures and changes a key. |
 | `Notification` | Shows a temporary toast. |
-
----
-
-## 🧩 Requirements
-
-The library only relies on native Roblox services:
-
-- `Players`
-- `TweenService`
-- `MarketplaceService`
-- `RunService`
-- `UserInputService`
-- `Workspace`
-
----
-
-## 📦 Installation
-
-```lua
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/SpotifyUILibrary.lua"))()
-```
 
 ---
 
@@ -837,6 +778,7 @@ The fixed bottom bar shows info about the current experience:
 - Experience name.
 - Creator name.
 - "Current experience" indicator.
+- Central scale controls styled like playback buttons (`-`, percentage, `+`).
 - Timeline with elapsed time since the window was created.
 
 By default the library tries to auto-fill this info. You can override it on creation:
@@ -886,13 +828,13 @@ Window:SetSessionTimerVisible(true)
 
 Once `SessionTimerDuration` is reached, the bar stays at 100% but the clock keeps counting normally.
 
-When available width is tight, the right-side indicator gets hidden automatically to keep the name, creator and timeline readable.
+When available width is tight, the right-side indicator gets hidden automatically. The scale controls stay centered, and the game name gets truncated before it reaches that area.
 
 ---
 
 ## 🔔 Notifications
 
-Notifications show up in the **bottom-right corner** of the screen and stack upward. The stroke uses an inner layer so it stays intact even on rounded corners.
+Notifications show up in the **bottom-right corner** of the screen and stack upward. Each toast uses its own rounded surface, with the `UIStroke` outside any clipping, so borders don't get cut off and corners stay round.
 
 ### Through the window
 
@@ -955,12 +897,13 @@ print(Window:GetEffectiveScale())
 
 ### Built-in controls
 
-The topbar has:
+The bottom bar has a central group inspired by Spotify's playback controls:
 
-- `-` button to shrink the scale.
-- Percentage indicator.
-- `+` button to grow the scale.
-- `×` button to hide or destroy the UI.
+- `-` button on the left to shrink the scale.
+- Percentage indicator highlighted in the center.
+- `+` button on the right to grow the scale.
+
+The topbar only keeps the `×` button to hide or destroy the UI, freeing up more room for the tab title.
 
 ### Responsive behavior
 
@@ -1245,6 +1188,6 @@ No license has been set for this package yet. Add a `LICENSE` file with the term
 
 Made in **Luau** for **Roblox**, visually inspired by **Spotify**.
 
-`Spotify UI Library v1.4.0`
+`Spotify UI Library v1.5.0`
 
 </div>
