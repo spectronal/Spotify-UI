@@ -486,7 +486,7 @@ local function createBaseRow(section, height)
 		Parent = section._content,
 	})
 	addCorner(row, CARD_CORNER_RADIUS)
-	local stroke = addStroke(row, Theme.Stroke, 0.78, 1)
+	local stroke = addStroke(row, Theme.Stroke, 0.78, 2)
 	local scale = create("UIScale", {
 		Scale = 1,
 		Parent = row,
@@ -675,7 +675,7 @@ function SectionMethods:CreateToggle(config)
 		Parent = row,
 	})
 	addCorner(track, 14)
-	local trackStroke = addStroke(track, value and Theme.AccentHover or Theme.Stroke, 0.72, 1)
+	local trackStroke = addStroke(track, value and Theme.AccentHover or Theme.Stroke, 0.72, 2)
 
 	local knobShadow = create("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -835,7 +835,7 @@ function SectionMethods:CreateSlider(config)
 		Parent = track,
 	})
 	addCorner(knob, 8)
-	addStroke(knob, Theme.Shadow, 0.7, 1)
+	addStroke(knob, Theme.Shadow, 0.7, 2)
 
 	local function roundToIncrement(rawValue)
 		local steps = math.floor(((rawValue - minimum) / increment) + 0.5)
@@ -982,7 +982,7 @@ function SectionMethods:CreateDropdown(config)
 		ZIndex = 11,
 	})
 	addCorner(selector, CONTROL_CORNER_RADIUS)
-	local selectorStroke = addStroke(selector, Theme.Stroke, 0.68, 1)
+	local selectorStroke = addStroke(selector, Theme.Stroke, 0.68, 2)
 
 	local selectedLabel = makeTextLabel(selector, {
 		Position = UDim2.fromOffset(12, 0),
@@ -1105,7 +1105,7 @@ function SectionMethods:CreateDropdown(config)
 					Parent = optionButton,
 				})
 				addCorner(optionButton, CONTROL_CORNER_RADIUS)
-				local optionStroke = addStroke(optionButton, Theme.Stroke, 0.82, 1)
+				local optionStroke = addStroke(optionButton, Theme.Stroke, 0.82, 2)
 				bindInteractiveSurface(optionButton, optionsMaid, optionButton, optionStroke, nil, {
 					NormalColor = Theme.Input,
 					HoverColor = Theme.InputHover,
@@ -1199,7 +1199,7 @@ function SectionMethods:CreateInput(config)
 		Parent = textBox,
 	})
 	addCorner(textBox, CONTROL_CORNER_RADIUS)
-	local inputStroke = addStroke(textBox, Theme.Stroke, 0.68, 1)
+	local inputStroke = addStroke(textBox, Theme.Stroke, 0.68, 2)
 
 	maid:Give(textBox.MouseEnter:Connect(function()
 		if not focused then
@@ -1280,7 +1280,7 @@ function SectionMethods:CreateLabel(config)
 		Parent = self._content,
 	})
 	addCorner(row, CARD_CORNER_RADIUS)
-	addStroke(row, Theme.Stroke, 0.72, 1)
+	addStroke(row, Theme.Stroke, 0.72, 2)
 	create("UIPadding", {
 		PaddingTop = UDim.new(0, 12),
 		PaddingBottom = UDim.new(0, 12),
@@ -1329,7 +1329,7 @@ function SectionMethods:CreateParagraph(config)
 		Parent = self._content,
 	})
 	addCorner(row, CARD_CORNER_RADIUS)
-	addStroke(row, Theme.Stroke, 0.72, 1)
+	addStroke(row, Theme.Stroke, 0.72, 2)
 	create("UIPadding", {
 		PaddingTop = UDim.new(0, 13),
 		PaddingBottom = UDim.new(0, 13),
@@ -1439,7 +1439,7 @@ function SectionMethods:CreateKeybindPicker(config)
 		ZIndex = 11,
 	})
 	addCorner(pickerButton, CONTROL_CORNER_RADIUS)
-	local pickerStroke = addStroke(pickerButton, Theme.Stroke, 0.68, 1)
+	local pickerStroke = addStroke(pickerButton, Theme.Stroke, 0.68, 2)
 
 	local pickerLabel = makeTextLabel(pickerButton, {
 		Size = UDim2.fromScale(1, 1),
@@ -1670,7 +1670,7 @@ function TabMethods:CreateSection(name)
 		Parent = self._scroll,
 	})
 	addCorner(sectionFrame, PANEL_CORNER_RADIUS)
-	addStroke(sectionFrame, Theme.Stroke, 0.8, 1)
+	addStroke(sectionFrame, Theme.Stroke, 0.8, 2)
 	addGradient(sectionFrame, Color3.fromRGB(27, 27, 27), Color3.fromRGB(22, 22, 22), 90)
 
 	local padding = create("UIPadding", {
@@ -2163,7 +2163,7 @@ function WindowMethods:CreateTab(nameOrConfig, iconOverride)
 		ZIndex = 6,
 	})
 	addCorner(tabButton, CONTROL_CORNER_RADIUS)
-	local tabStroke = addStroke(tabButton, Theme.Stroke, 1, 1)
+	local tabStroke = addStroke(tabButton, Theme.Stroke, 1, 2)
 	local tabScale = create("UIScale", {
 		Scale = 1,
 		Parent = tabButton,
@@ -2451,7 +2451,7 @@ function WindowMethods:Notify(config)
 	})
 	toastMaid:Give(toast)
 	addCorner(toast, PANEL_CORNER_RADIUS)
-	addStroke(toast, Theme.Stroke, 0.38, 1)
+	addStroke(toast, Theme.Stroke, 0.38, 2)
 	addGradient(toast, Color3.fromRGB(27, 27, 27), Color3.fromRGB(20, 20, 20), 90)
 
 	local accent = create("Frame", {
@@ -2641,7 +2641,7 @@ function Library:CreateWindow(config)
 		Parent = screenGui,
 	})
 	addCorner(outline, WINDOW_CORNER_RADIUS)
-	local outlineStroke = addStroke(outline, Theme.Outline, 1, 1)
+	local outlineStroke = addStroke(outline, Theme.Outline, 1, 2)
 
 	local main = create("CanvasGroup", {
 		Name = "Main",
@@ -2886,7 +2886,7 @@ function Library:CreateWindow(config)
 		ZIndex = 7,
 	})
 	addCorner(scaleMinus, 16)
-	local scaleMinusStroke = addStroke(scaleMinus, Theme.Stroke, 0.78, 1)
+	local scaleMinusStroke = addStroke(scaleMinus, Theme.Stroke, 0.78, 2)
 	local scaleMinusScale = create("UIScale", { Scale = 1, Parent = scaleMinus })
 
 	local scaleLabel = makeTextLabel(topbar, {
@@ -2908,7 +2908,7 @@ function Library:CreateWindow(config)
 		ZIndex = 7,
 	})
 	addCorner(scalePlus, 16)
-	local scalePlusStroke = addStroke(scalePlus, Theme.Stroke, 0.78, 1)
+	local scalePlusStroke = addStroke(scalePlus, Theme.Stroke, 0.78, 2)
 	local scalePlusScale = create("UIScale", { Scale = 1, Parent = scalePlus })
 
 	local closeButton = makeTextButton(topbar, {
@@ -2921,7 +2921,7 @@ function Library:CreateWindow(config)
 		ZIndex = 7,
 	})
 	addCorner(closeButton, 16)
-	local closeStroke = addStroke(closeButton, Theme.Stroke, 0.78, 1)
+	local closeStroke = addStroke(closeButton, Theme.Stroke, 0.78, 2)
 	local closeScale = create("UIScale", { Scale = 1, Parent = closeButton })
 
 	local pageContainer = create("Frame", {
@@ -2985,7 +2985,7 @@ function Library:CreateWindow(config)
 		Parent = nowPlaying,
 	})
 	addCorner(gameIconHolder, CARD_CORNER_RADIUS)
-	addStroke(gameIconHolder, Theme.Stroke, 0.62, 1)
+	addStroke(gameIconHolder, Theme.Stroke, 0.62, 2)
 	local gameIconScale = create("UIScale", { Scale = 1, Parent = gameIconHolder })
 
 	makeTextLabel(gameIconHolder, {
@@ -3046,7 +3046,7 @@ function Library:CreateWindow(config)
 		ZIndex = 21,
 	})
 	addCorner(gameStatus, 17)
-	local gameStatusStroke = addStroke(gameStatus, Theme.Stroke, 0.8, 1)
+	local gameStatusStroke = addStroke(gameStatus, Theme.Stroke, 0.8, 2)
 	local gameStatusScale = create("UIScale", { Scale = 1, Parent = gameStatus })
 
 	local statusPulse = create("Frame", {
@@ -3141,7 +3141,7 @@ function Library:CreateWindow(config)
 		Parent = sessionTimerTrack,
 	})
 	addCorner(sessionTimerKnob, 5)
-	addStroke(sessionTimerKnob, Theme.Shadow, 0.66, 1)
+	addStroke(sessionTimerKnob, Theme.Shadow, 0.66, 2)
 
 	local sessionElapsedLabel = makeTextLabel(sessionTimerContainer, {
 		Name = "Elapsed",
