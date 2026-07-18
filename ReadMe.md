@@ -4,9 +4,8 @@
 
 ### A modern Roblox UI library written in Luau, styled after Spotify's look.
 
-<img alt="Version" src="https://img.shields.io/badge/version-1.5.0-1DB954?style=for-the-badge">
+<img alt="Version" src="https://img.shields.io/badge/version-1.6.0-1DB954?style=for-the-badge">
 <img alt="Luau" src="https://img.shields.io/badge/Luau-Roblox-00A2FF?style=for-the-badge&logo=roblox">
-<img alt="Client" src="https://img.shields.io/badge/runs%20on-LocalScript-181818?style=for-the-badge">
 <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-none-1DB954?style=for-the-badge">
 
 <br><br>
@@ -17,7 +16,7 @@
 
 ## ✨ About
 
-Spotify UI Library is a Roblox interface library built around a simple API, a consistent look, and code that's easy to maintain. You get a full window with sidebar, tabs, sections, interactive components, notifications, responsive scaling, a configurable keybind, and a bottom bar inspired by Spotify's "Now Playing".
+Spotify UI Library is a Roblox interface library built around a simple API, a consistent look, and code that's easy to maintain. You get a full window with sidebar, tabs, sections, interactive components, notifications, responsive scaling, a configurable keybind, a sliding Settings side panel, and a Spotify-inspired mini player.
 
 ---
 
@@ -25,7 +24,42 @@ Spotify UI Library is a Roblox interface library built around a simple API, a co
 
 Changes for every version, newest on top.
 
-## `v1.5.0` — 07/17/2026
+## `v1.6.0` — 07/18/2026
+
+### ✨ Added
+
+- Minimize button next to the close button.
+- Responsive mini player inspired by Spotify's mobile popup.
+- Experience thumbnail as the popup's background, with a dark gradient overlay.
+- Name, creator, elapsed time, total duration (or a `No limit` label when the limit is disabled) in the mini player.
+- Expand button to go back to the full window.
+- New APIs: `SetMinimized`, `ToggleMinimized`, `IsMinimized`.
+- Settings side panel sliding in from the right.
+- Panel header with the experience's image and name.
+- Panel can be closed via its close button, an outside click, or the API.
+- New APIs: `SetSettingsPanelVisible`, `ToggleSettingsPanel`, `IsSettingsPanelVisible`.
+- New `Minimized` option in `CreateWindow`.
+
+### 🔧 Changed
+
+- The Settings tab no longer replaces the main content area.
+- Sections added to Settings now render inside the side panel's scrollable area.
+- Mini player scale controls reuse the same function as the bottom bar controls, so there's no divergent logic.
+- `SetGameInfo` now keeps the Now Playing bar, the mini player and the Settings header in sync.
+- AutoScale now computes separate fit scales for the full window and the popup, while still respecting the user's chosen scale value.
+
+### 🐛 Fixed
+
+- Possible overlap between the side panel and the Now Playing bar.
+- Settings components ending up behind the panel surface due to a `ZIndex` mismatch.
+- Minimize/restore transitions holding onto stale tweens or connections.
+- Long game names overflowing the mini player.
+- Popup timeline not following `ResetSessionTimer` or changes to the elapsed time.
+- Clicks on empty panel areas bleeding through to the backdrop and closing Settings.
+- Panel tween completion connection staying alive after the animation finished.
+
+<details>
+<summary><strong>v1.5.0 — 07/17/2026</strong></summary>
 
 ### ✨ Added
 
@@ -48,7 +82,10 @@ Changes for every version, newest on top.
 - Notification `UIStroke` blending visually with the progress bar.
 - Opacity tween keeping stale references after a notification was dismissed early.
 
-## `v1.4.0` — 07/17/2026
+</details>
+
+<details>
+<summary><strong>v1.4.0 — 07/17/2026</strong></summary>
 
 ### 🔧 Changed
 
@@ -67,7 +104,10 @@ Changes for every version, newest on top.
 - Notification `UIStroke` getting cut off on rounded corners.
 - Notification enter/exit tweens getting overridden by `UIListLayout`.
 
-## `v1.3.0` — 07/17/2026
+</details>
+
+<details>
+<summary><strong>v1.3.0 — 07/17/2026</strong></summary>
 
 ### ✨ Added
 
@@ -93,7 +133,10 @@ Changes for every version, newest on top.
 - Stroke, shadow and window now stay in sync while dragging, resizing or changing scale.
 - Timer connection now disconnects automatically on `Window:Destroy()`.
 
-## `v1.2.0` — 07/17/2026
+</details>
+
+<details>
+<summary><strong>v1.2.0 — 07/17/2026</strong></summary>
 
 ### ✨ Added
 
@@ -123,7 +166,10 @@ Changes for every version, newest on top.
 - Conflict between the responsive scale tween and the open/close tween.
 - Slider staying in a hover state after dragging outside the card.
 
-## `v1.1.0` — 07/17/2026
+</details>
+
+<details>
+<summary><strong>v1.1.0 — 07/17/2026</strong></summary>
 
 ### ✨ Added
 
@@ -153,6 +199,8 @@ Changes for every version, newest on top.
 - Dangling references to already-destroyed components, tabs and sections.
 - Keybind firing while capturing a key or typing in a `TextBox`.
 
+</details>
+
 <details>
 <summary><strong>v1.0.0 — First release</strong></summary>
 
@@ -181,6 +229,7 @@ Changes for every version, newest on top.
 - [Components](#-components)
 - [Settings and Keybind](#-settings-and-keybind)
 - [Now Playing Bar](#-now-playing-bar)
+- [Mini Player](#-mini-player)
 - [Notifications](#-notifications)
 - [Responsiveness and Scaling](#-responsiveness-and-scaling)
 - [Theme](#-theme)
@@ -198,9 +247,11 @@ Changes for every version, newest on top.
 - Subtle gradients, visual elevation, hover/press states.
 - Animations for opening, closing and switching tabs.
 - Sidebar with icon, label and active-tab indicator.
-- Automatic `Settings` tab, kept separate from the main tabs.
+- Automatic `Settings` tab, opened as a sliding side panel on the right.
 - Configurable keybind to open/close the interface.
 - Bottom bar showing the experience's icon, name and creator.
+- Mini player with the game's thumbnail in the background, a timer, and scale controls.
+- Minimize button on the topbar and an expand button on the compact popup.
 - Session timer with a progress bar styled after Spotify's timeline.
 - Draggable window (mouse and touch).
 - Manual scaling via the center controls on the bottom bar (`-`, percentage, `+`).
@@ -330,6 +381,7 @@ local Window = Library:CreateWindow({
     MaxAutoScale = 1.2,
     ViewportMargin = 20,
     Keybind = Enum.KeyCode.RightShift,
+    Minimized = false,
     ShowNowPlaying = true,
     ShowSessionTimer = true,
     SessionTimerDuration = 3600,
@@ -360,9 +412,10 @@ local Window = Library:CreateWindow({
 | `MaxAutoScale` | `number` | `1.2` | Cap for the automatic scale. |
 | `ViewportMargin` | `number` | `20` | Margin kept between the window and the screen edge. |
 | `Keybind` | `Enum.KeyCode`, `string`, `false` | `RightShift` | Key used to open/close the UI. Pass `false` to disable it. |
+| `Minimized` | `boolean` | `false` | Starts directly in the mini player. |
 | `ShowNowPlaying` | `boolean` | `true` | Shows the bottom bar for the experience. |
 | `ShowSessionTimer` | `boolean` | `true` | Shows the timeline with elapsed time since the window was created. |
-| `SessionTimerDuration` | `number` | `3600` | Duration in seconds used as the visual scale until the bar hits 100%. The displayed time keeps counting past that. |
+| `SessionTimerDuration` | `number` or `false` | `3600` | Duration in seconds used as the visual scale. Pass `false` to show `No limit` and keep the bar without percentage progress. |
 | `SessionTimerText` | `string` | `Time open` | Text shown on the right side of the timeline. |
 | `CloseBehavior` | `"Hide"` or `"Destroy"` | `"Hide"` | What the close button does. |
 | `Animations` | `boolean` | `true` | Turns visual tweens on/off for the window and tabs. |
@@ -393,6 +446,12 @@ local Window = Library:CreateWindow({
 | `Window:SetTitle(title, subtitle?)` | `Window` | Updates title and, optionally, subtitle. |
 | `Window:SetVisible(visible, instant?)` | `Window` | Shows/hides the UI, animated by default. |
 | `Window:ToggleVisible()` | `boolean` | Toggles visibility, returns the new state. |
+| `Window:SetMinimized(minimized, instant?)` | `Window` | Switches between the full window and the mini player. |
+| `Window:ToggleMinimized()` | `boolean` | Toggles minimized mode and returns the new state. |
+| `Window:IsMinimized()` | `boolean` | Tells you whether the mini player is active. |
+| `Window:SetSettingsPanelVisible(visible, instant?)` | `Window` | Opens or closes the Settings side panel. |
+| `Window:ToggleSettingsPanel()` | `boolean` | Toggles the side panel and returns the new state. |
+| `Window:IsSettingsPanelVisible()` | `boolean` | Tells you whether the Settings panel is open. |
 | `Window:SetGameInfo(config)` | `Window` | Updates name, creator and icon on the bottom bar. |
 | `Window:SetNowPlayingVisible(visible)` | `Window` | Shows/hides the bottom bar. |
 | `Window:SetSessionTimerVisible(visible)` | `Window` | Shows/hides the timeline and recalculates the bottom bar height. |
@@ -715,7 +774,15 @@ Behavior while capturing:
 
 ## ⚙️ Settings and Keybind
 
-The `Settings` tab is created automatically at the bottom of the sidebar.
+The `Settings` tab is created automatically at the bottom of the sidebar. Selecting it **doesn't replace the main page**: an overlay panel slides in from the right, following the same pattern as Spotify desktop's context panel.
+
+The panel includes:
+
+- Experience thumbnail and name in the header.
+- `×` button to close it.
+- Closes when clicking the darkened area outside the panel.
+- Scrollable area for the Keybind Picker and any section added later.
+- Adaptive width, using the same `UIScale` as the main window.
 
 ```lua
 local SettingsTab = Window:GetSettingsTab()
@@ -767,6 +834,14 @@ ExtraSection:CreateToggle({
 
 > [!TIP]
 > Manually creating a tab named `Settings` just returns the existing automatic tab instead of duplicating it.
+
+You can also control the panel through code:
+
+```lua
+Window:SetSettingsPanelVisible(true)
+Window:ToggleSettingsPanel()
+print(Window:IsSettingsPanelVisible())
+```
 
 ---
 
@@ -829,6 +904,45 @@ Window:SetSessionTimerVisible(true)
 Once `SessionTimerDuration` is reached, the bar stays at 100% but the clock keeps counting normally.
 
 When available width is tight, the right-side indicator gets hidden automatically. The scale controls stay centered, and the game name gets truncated before it reaches that area.
+
+---
+
+## 📱 Mini Player
+
+The `−` button next to the close button collapses the full window and shows a compact popup inspired by Spotify's mobile player.
+
+The popup shows:
+
+- The experience's icon filling the background.
+- A dark gradient overlay to keep text readable.
+- Game name and creator name.
+- Elapsed session time.
+- The configured total duration, or `No limit` when `SessionTimerDuration = false`.
+- Timeline synced with the Now Playing bar.
+- `-`, percentage and `+` controls, reusing the same scale function as the full window.
+- An `↗` button to go back to the full interface.
+
+```lua
+Window:SetMinimized(true)
+Window:SetMinimized(false)
+
+Window:ToggleMinimized()
+print(Window:IsMinimized())
+```
+
+The popup's scale uses the same value set through `Window:SetScale()`. AutoScale only computes the fit limit needed for the mini player to stay inside the viewport, without overriding the user's preference.
+
+```lua
+Window:SetScale(1.2) -- affects both the full window and the mini player
+```
+
+You can also start minimized:
+
+```lua
+local Window = Library:CreateWindow({
+    Minimized = true,
+})
+```
 
 ---
 
@@ -1188,6 +1302,6 @@ No license has been set for this package yet. Add a `LICENSE` file with the term
 
 Made in **Luau** for **Roblox**, visually inspired by **Spotify**.
 
-`Spotify UI Library v1.5.0`
+`Spotify UI Library v1.6.0`
 
 </div>

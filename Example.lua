@@ -5,14 +5,15 @@ local Library = loadstring(
 )()
 
 local Window = Library:CreateWindow({
-	Title = "Spotify UI Example",
-	Subtitle = "By Spectronal",
+	Title = "Meu Menu",
+	Subtitle = "Spotify UI Library",
 	Size = Vector2.new(940, 590),
 	Scale = 1,
 	AutoScale = true,
 	Animations = true,
 	AnimateOnStart = true,
 	Keybind = Enum.KeyCode.RightShift,
+	Minimized = false,
 	ShowNowPlaying = true,
 	ShowSessionTimer = true,
 	SessionTimerDuration = 3600, -- Escala visual da barra: 1 hora.
@@ -28,6 +29,14 @@ local HomeTab = Window:CreateTab({
 	Icon = "⌂",
 })
 local ControlsSection = HomeTab:CreateSection("Controles principais")
+
+ControlsSection:CreateButton({
+	Text = "Abrir mini player",
+	Description = "Recolhe a janela para o popup compacto.",
+	Callback = function()
+		Window:SetMinimized(true)
+	end,
+})
 
 ControlsSection:CreateButton({
 	Text = "Clique aqui",
@@ -94,6 +103,7 @@ AboutTab:CreateLabel({
 })
 
 -- A tab Settings e o Keybind Picker são criados automaticamente.
+-- Ao clicar na tab, o conteúdo abre no painel lateral direito.
 local SettingsTab = Window:GetSettingsTab()
 SettingsTab:CreateLabel({
 	Text = "O atalho só é mantido durante a sessão atual.",
@@ -102,6 +112,9 @@ SettingsTab:CreateLabel({
 
 -- APIs adicionais:
 -- Window:SetKeybind(Enum.KeyCode.F4)
+-- Window:SetMinimized(true)
+-- Window:ToggleMinimized()
+-- Window:SetSettingsPanelVisible(true)
 -- Window:SetGameInfo({ Name = "Novo nome", Creator = "Novo criador" })
 -- Window:SetNowPlayingVisible(false)
 -- Window:SetSessionTimerVisible(false)
