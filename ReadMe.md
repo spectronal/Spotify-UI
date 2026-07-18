@@ -1179,7 +1179,7 @@ Component:Destroy()
 
 ## 📄 License
 
-No license has been set for this package yet. Add a `LICENSE` file with the terms you want before publishing this library publicly.
+[MIT License](https://github.com/spectronal/Spotify-UI/blob/main/LICENSE)
 
 ---
 
