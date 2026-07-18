@@ -6,6 +6,7 @@
 
 <img alt="Version" src="https://img.shields.io/badge/version-1.5.0-1DB954?style=for-the-badge">
 <img alt="Luau" src="https://img.shields.io/badge/Luau-Roblox-00A2FF?style=for-the-badge&logo=roblox">
+<img alt="Client" src="https://img.shields.io/badge/runs%20on-LocalScript-181818?style=for-the-badge">
 <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-none-1DB954?style=for-the-badge">
 
 <br><br>
@@ -47,7 +48,8 @@ Changes for every version, newest on top.
 - Notification `UIStroke` blending visually with the progress bar.
 - Opacity tween keeping stale references after a notification was dismissed early.
 
-## `v1.4.0` — 07/17/2026
+<details>
+<summary><strong>v1.4.0 — 07/17/2026</strong></summary>
 
 ### 🔧 Changed
 
@@ -66,7 +68,10 @@ Changes for every version, newest on top.
 - Notification `UIStroke` getting cut off on rounded corners.
 - Notification enter/exit tweens getting overridden by `UIListLayout`.
 
-## `v1.3.0` — 07/17/2026
+</details>
+
+<details>
+<summary><strong>v1.3.0 — 07/17/2026</strong></summary>
 
 ### ✨ Added
 
@@ -92,7 +97,10 @@ Changes for every version, newest on top.
 - Stroke, shadow and window now stay in sync while dragging, resizing or changing scale.
 - Timer connection now disconnects automatically on `Window:Destroy()`.
 
-## `v1.2.0` — 07/17/2026
+</details>
+
+<details>
+<summary><strong>v1.2.0 — 07/17/2026</strong></summary>
 
 ### ✨ Added
 
@@ -122,7 +130,10 @@ Changes for every version, newest on top.
 - Conflict between the responsive scale tween and the open/close tween.
 - Slider staying in a hover state after dragging outside the card.
 
-## `v1.1.0` — 07/17/2026
+</details>
+
+<details>
+<summary><strong>v1.1.0 — 07/17/2026</strong></summary>
 
 ### ✨ Added
 
@@ -151,6 +162,8 @@ Changes for every version, newest on top.
 - Notifications and temp tasks sticking around after destroying the UI.
 - Dangling references to already-destroyed components, tabs and sections.
 - Keybind firing while capturing a key or typing in a `TextBox`.
+
+</details>
 
 <details>
 <summary><strong>v1.0.0 — First release</strong></summary>
@@ -1179,7 +1192,7 @@ Component:Destroy()
 
 ## 📄 License
 
-[MIT License](https://github.com/spectronal/Spotify-UI/blob/main/LICENSE)
+No license has been set for this package yet. Add a `LICENSE` file with the terms you want before publishing this library publicly.
 
 ---
 
