@@ -80,6 +80,16 @@ ControlsSection:CreateDropdown({
 	end,
 })
 
+ControlsSection:CreateDropdown({
+	Text = "Efeitos visuais",
+	Options = { "Bloom", "Sombras", "Partículas", "Reflexos" },
+	Multi = true,
+	Default = { "Bloom", "Sombras" },
+	Callback = function(selected)
+		print("Efeitos:", table.concat(selected, ", "))
+	end,
+})
+
 ControlsSection:CreateInput({
 	Text = "Nome da playlist",
 	Placeholder = "Minha playlist...",
@@ -114,6 +124,7 @@ SettingsTab:CreateLabel({
 -- Window:SetKeybind(Enum.KeyCode.F4)
 -- Window:SetMinimized(true)
 -- Window:ToggleMinimized()
+-- Window:ResetMiniPlayerPosition()
 -- Window:SetSettingsPanelVisible(true)
 -- Window:SetGameInfo({ Name = "Novo nome", Creator = "Novo criador" })
 -- Window:SetNowPlayingVisible(false)

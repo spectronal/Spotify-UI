@@ -4,7 +4,7 @@
 
 ### A modern Roblox UI library written in Luau, styled after Spotify's look.
 
-<img alt="Version" src="https://img.shields.io/badge/version-1.6.0-1DB954?style=for-the-badge">
+<img alt="Version" src="https://img.shields.io/badge/version-1.7.0-1DB954?style=for-the-badge">
 <img alt="Luau" src="https://img.shields.io/badge/Luau-Roblox-00A2FF?style=for-the-badge&logo=roblox">
 <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-none-1DB954?style=for-the-badge">
 
@@ -24,7 +24,37 @@ Spotify UI Library is a Roblox interface library built around a simple API, a co
 
 Changes for every version, newest on top.
 
-## `v1.6.0` — 07/18/2026
+## `v1.7.0` — 07/18/2026
+
+### ✨ Added
+
+- Compact, draggable mini player.
+- Default starting position in the bottom-right corner of the screen.
+- New API: `Window:ResetMiniPlayerPosition()`.
+- New `Multi = true` mode for Dropdown.
+- New `Select`, `Deselect`, `Clear` and `IsMulti` methods for multi-select dropdowns.
+- Visual `✓` indicator on selected options.
+
+### 🔧 Changed
+
+- The Settings panel now slides entirely from within the window's own internal viewport.
+- The mini player shrank from `520 × 270` to `350 × 190`.
+- Minimize/restore transitions now run in two synced phases.
+- Mini player position gets recalculated and clamped when the viewport or scale changes.
+- Selected dropdown options use an inner stroke so rounded corners stay intact.
+
+### 🐛 Fixed
+
+- Settings backdrop covering the window's outer rounded corners.
+- Square stroke on the Settings side panel.
+- Settings panel looking like it was sliding in from outside the UI.
+- Window elements disappearing at different times during minimize.
+- Selected Dropdown option border getting clipped or turning square.
+- Dropdown selector hover removing the green stroke while the list was still open.
+- Notifications overlapping the mini player in the bottom-right corner.
+
+<details>
+<summary><strong>v1.6.0 — 07/18/2026</strong></summary>
 
 ### ✨ Added
 
@@ -57,6 +87,8 @@ Changes for every version, newest on top.
 - Popup timeline not following `ResetSessionTimer` or changes to the elapsed time.
 - Clicks on empty panel areas bleeding through to the backdrop and closing Settings.
 - Panel tween completion connection staying alive after the animation finished.
+
+</details>
 
 <details>
 <summary><strong>v1.5.0 — 07/17/2026</strong></summary>
@@ -247,10 +279,10 @@ Changes for every version, newest on top.
 - Subtle gradients, visual elevation, hover/press states.
 - Animations for opening, closing and switching tabs.
 - Sidebar with icon, label and active-tab indicator.
-- Automatic `Settings` tab, opened as a sliding side panel on the right.
+- Automatic `Settings` tab, opened as a panel sliding out from inside the window.
 - Configurable keybind to open/close the interface.
 - Bottom bar showing the experience's icon, name and creator.
-- Mini player with the game's thumbnail in the background, a timer, and scale controls.
+- Compact, draggable mini player in the bottom-right corner, with a thumbnail, timer and scale controls.
 - Minimize button on the topbar and an expand button on the compact popup.
 - Session timer with a progress bar styled after Spotify's timeline.
 - Draggable window (mouse and touch).
@@ -274,7 +306,7 @@ Changes for every version, newest on top.
 | `Button` | Runs an action on click. |
 | `Toggle` | Switches on/off. |
 | `Slider` | Picks a numeric value. |
-| `Dropdown` | Picks an option from a list. |
+| `Dropdown` | Picks one or multiple options from a list. |
 | `Input` | Text input field. |
 | `Label` | Plain text display. |
 | `Paragraph` | Title + multi-line content. |
@@ -449,6 +481,7 @@ local Window = Library:CreateWindow({
 | `Window:SetMinimized(minimized, instant?)` | `Window` | Switches between the full window and the mini player. |
 | `Window:ToggleMinimized()` | `boolean` | Toggles minimized mode and returns the new state. |
 | `Window:IsMinimized()` | `boolean` | Tells you whether the mini player is active. |
+| `Window:ResetMiniPlayerPosition()` | `Window` | Repositions the mini player back to the bottom-right corner. |
 | `Window:SetSettingsPanelVisible(visible, instant?)` | `Window` | Opens or closes the Settings side panel. |
 | `Window:ToggleSettingsPanel()` | `boolean` | Toggles the side panel and returns the new state. |
 | `Window:IsSettingsPanelVisible()` | `boolean` | Tells you whether the Settings panel is open. |
@@ -637,6 +670,8 @@ print(Slider:GetValue())
 
 ### Dropdown
 
+#### Single select
+
 ```lua
 local Dropdown = Section:CreateDropdown({
     Text = "Quality",
@@ -649,6 +684,25 @@ local Dropdown = Section:CreateDropdown({
 })
 ```
 
+#### Multi-select
+
+Turn on `Multi = true`. In this mode, `Default`, `SetValue`, `GetValue` and the callback all work with a list.
+
+```lua
+local Effects = Section:CreateDropdown({
+    Text = "Effects",
+    Options = { "Bloom", "Shadows", "Particles", "Reflections" },
+    Multi = true,
+    Default = { "Bloom", "Shadows" },
+
+    Callback = function(selected)
+        print(table.concat(selected, ", "))
+    end,
+})
+```
+
+Selected options get a rounded inner stroke and a `✓` indicator. The menu stays open so you can pick more than one.
+
 Methods:
 
 ```lua
@@ -656,8 +710,14 @@ Dropdown:SetValue("Ultra")
 Dropdown:SetValue("Medium", false)
 print(Dropdown:GetValue())
 
+Effects:SetValue({ "Bloom", "Reflections" })
+Effects:Select("Particles")
+Effects:Deselect("Bloom")
+Effects:Clear()
+print(Effects:IsMulti())
+
 Dropdown:SetOptions({ "Option A", "Option B", "Option C" })
-Dropdown:SetOptions({ "New A", "New B" }, true) -- tries to keep the current value
+Dropdown:SetOptions({ "New A", "New B" }, true)
 Dropdown:SetOpen(true)
 ```
 
@@ -835,6 +895,8 @@ ExtraSection:CreateToggle({
 > [!TIP]
 > Manually creating a tab named `Settings` just returns the existing automatic tab instead of duplicating it.
 
+The panel uses an internal viewport inset from the window's edges, so the animation is born inside the window instead of covering the outer rounded corners.
+
 You can also control the panel through code:
 
 ```lua
@@ -909,7 +971,7 @@ When available width is tight, the right-side indicator gets hidden automaticall
 
 ## 📱 Mini Player
 
-The `−` button next to the close button collapses the full window and shows a compact popup inspired by Spotify's mobile player.
+The `−` button next to the close button collapses the full window and shows a compact popup in the **bottom-right corner of the screen**.
 
 The popup shows:
 
@@ -922,18 +984,23 @@ The popup shows:
 - `-`, percentage and `+` controls, reusing the same scale function as the full window.
 - An `↗` button to go back to the full interface.
 
+The mini player can be dragged by its header. Its position is clamped to the viewport and stays valid when resolution or scale changes.
+
 ```lua
 Window:SetMinimized(true)
 Window:SetMinimized(false)
 
 Window:ToggleMinimized()
 print(Window:IsMinimized())
+
+-- Snap it back to the bottom-right corner:
+Window:ResetMiniPlayerPosition()
 ```
 
 The popup's scale uses the same value set through `Window:SetScale()`. AutoScale only computes the fit limit needed for the mini player to stay inside the viewport, without overriding the user's preference.
 
 ```lua
-Window:SetScale(1.2) -- affects both the full window and the mini player
+Window:SetScale(1.2)
 ```
 
 You can also start minimized:
@@ -943,6 +1010,8 @@ local Window = Library:CreateWindow({
     Minimized = true,
 })
 ```
+
+Switching between modes runs in two synced phases: the current mode fully fades out before the next one fades in, so parts of the window don't disappear out of order.
 
 ---
 
@@ -1302,6 +1371,6 @@ No license has been set for this package yet. Add a `LICENSE` file with the term
 
 Made in **Luau** for **Roblox**, visually inspired by **Spotify**.
 
-`Spotify UI Library v1.6.0`
+`Spotify UI Library v1.7.0`
 
 </div>

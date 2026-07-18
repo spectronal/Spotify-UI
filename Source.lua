@@ -1,4 +1,4 @@
--- Source for SpotifyUI library v1.6.0
+-- Source code Spotify UI Library v1.7.0
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8,7 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Library = {
-	Version = "1.6.0",
+	Version = "1.7.0",
 	_windows = {},
 	_windowCounter = 0,
 }
@@ -55,8 +55,8 @@ local CARD_CORNER_RADIUS = 10
 local CONTROL_CORNER_RADIUS = 8
 local WINDOW_OUTLINE_TRANSPARENCY = 0.48
 local WINDOW_SHADOW_TRANSPARENCY = 0.78
-local MINI_PLAYER_SIZE = Vector2.new(520, 270)
-local MINI_PLAYER_MARGIN = 22
+local MINI_PLAYER_SIZE = Vector2.new(350, 190)
+local MINI_PLAYER_MARGIN = 18
 local SETTINGS_PANEL_MIN_WIDTH = 318
 local SETTINGS_PANEL_MAX_WIDTH = 382
 
@@ -979,10 +979,49 @@ function SectionMethods:CreateDropdown(config)
 	local optionsMaidTaskId = maid:Give(optionsMaid)
 
 	local options = table.clone(config.Options or {})
-	local value = config.Default
+	local multi = config.Multi == true
+	local value = multi and nil or config.Default
+	local selectedValues = {}
 	local opened = false
 	local collapsedHeight = 58
-	local row, rowStroke, rowScale = createBaseRow(self, collapsedHeight)
+
+	local function optionExists(candidate)
+		for _, option in ipairs(options) do
+			if option == candidate then
+				return true
+			end
+		end
+		return false
+	end
+
+	local function assignMultiValues(newValue)
+		table.clear(selectedValues)
+		if type(newValue) == "table" then
+			for _, item in ipairs(newValue) do
+				if optionExists(item) then
+					selectedValues[item] = true
+				end
+			end
+		elseif newValue ~= nil and optionExists(newValue) then
+			selectedValues[newValue] = true
+		end
+	end
+
+	local function getMultiValues()
+		local result = {}
+		for _, option in ipairs(options) do
+			if selectedValues[option] then
+				table.insert(result, option)
+			end
+		end
+		return result
+	end
+
+	if multi then
+		assignMultiValues(config.Default)
+	end
+
+	local row, rowStroke = createBaseRow(self, collapsedHeight)
 	row.ClipsDescendants = false
 
 	makeTextLabel(row, {
@@ -1000,16 +1039,17 @@ function SectionMethods:CreateDropdown(config)
 		Size = UDim2.new(0.55, -16, 0, 38),
 		BackgroundColor3 = Theme.Input,
 		Text = "",
+		ClipsDescendants = false,
 		ZIndex = 11,
 	})
 	addCorner(selector, CONTROL_CORNER_RADIUS)
-	local selectorStroke = addStroke(selector, Theme.Stroke, 0.68, 1)
+	local selectorStroke = addInsetStroke(selector, CONTROL_CORNER_RADIUS, Theme.Stroke, 0.68, 2, 14)
 
 	local selectedLabel = makeTextLabel(selector, {
 		Position = UDim2.fromOffset(12, 0),
 		Size = UDim2.new(1, -42, 1, 0),
-		Text = value ~= nil and tostring(value) or (config.Placeholder or "Selecionar"),
-		TextColor3 = value ~= nil and Theme.Text or Theme.Subtext,
+		Text = "",
+		TextColor3 = Theme.Subtext,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextSize = 13,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1049,6 +1089,26 @@ function SectionMethods:CreateDropdown(config)
 		Parent = optionsHolder,
 	})
 
+	local function updateSelectedLabel()
+		if multi then
+			local selected = getMultiValues()
+			if #selected == 0 then
+				selectedLabel.Text = config.Placeholder or "Selecionar"
+				selectedLabel.TextColor3 = Theme.Subtext
+			else
+				local labels = {}
+				for _, item in ipairs(selected) do
+					table.insert(labels, tostring(item))
+				end
+				selectedLabel.Text = table.concat(labels, ", ")
+				selectedLabel.TextColor3 = Theme.Text
+			end
+		else
+			selectedLabel.Text = value ~= nil and tostring(value) or (config.Placeholder or "Selecionar")
+			selectedLabel.TextColor3 = value ~= nil and Theme.Text or Theme.Subtext
+		end
+	end
+
 	local function getExpandedHeight()
 		local visibleOptions = math.clamp(#options, 1, 4)
 		return collapsedHeight + 10 + visibleOptions * 36 + math.max(visibleOptions - 1, 0) * 6
@@ -1068,7 +1128,7 @@ function SectionMethods:CreateDropdown(config)
 		})
 		playTween(selectorStroke, FAST_TWEEN_INFO, {
 			Color = opened and Theme.Accent or Theme.Stroke,
-			Transparency = opened and 0.3 or 0.68,
+			Transparency = opened and 0.24 or 0.68,
 		})
 		playTween(rowStroke, FAST_TWEEN_INFO, {
 			Color = opened and Theme.AccentSoft or Theme.Stroke,
@@ -1077,15 +1137,23 @@ function SectionMethods:CreateDropdown(config)
 	end
 
 	local function setValue(newValue, fireCallback)
-		value = newValue
-		selectedLabel.Text = value ~= nil and tostring(value) or (config.Placeholder or "Selecionar")
-		selectedLabel.TextColor3 = value ~= nil and Theme.Text or Theme.Subtext
-		if fireCallback ~= false then
-			safeCallback(config.Callback, value)
+		if multi then
+			assignMultiValues(newValue)
+			updateSelectedLabel()
+			if fireCallback ~= false then
+				safeCallback(config.Callback, table.clone(getMultiValues()))
+			end
+		else
+			value = newValue
+			updateSelectedLabel()
+			if fireCallback ~= false then
+				safeCallback(config.Callback, value)
+			end
 		end
 	end
 
-	local function rebuildOptions()
+	local rebuildOptions
+	rebuildOptions = function()
 		maid:Forget(optionsMaidTaskId)
 		optionsMaid:Cleanup()
 		optionsMaid = Maid.new()
@@ -1110,32 +1178,78 @@ function SectionMethods:CreateDropdown(config)
 		else
 			for index, option in ipairs(options) do
 				local optionValue = option
+				local selected = value == optionValue
+				if multi then
+					selected = selectedValues[optionValue] == true
+				end
 				local optionButton = makeTextButton(optionsHolder, {
 					Name = "Option",
-					Size = UDim2.new(1, -4, 0, 36),
-					BackgroundColor3 = Theme.Input,
-					Text = tostring(optionValue),
-					TextXAlignment = Enum.TextXAlignment.Left,
-					TextSize = 13,
+					Size = UDim2.new(1, -6, 0, 36),
+					BackgroundColor3 = selected and Theme.Selected or Theme.Input,
+					Text = "",
 					LayoutOrder = index,
+					ClipsDescendants = false,
 					ZIndex = 13,
 				})
-				create("UIPadding", {
-					PaddingLeft = UDim.new(0, 12),
-					PaddingRight = UDim.new(0, 12),
-					Parent = optionButton,
-				})
 				addCorner(optionButton, CONTROL_CORNER_RADIUS)
-				local optionStroke = addStroke(optionButton, Theme.Stroke, 0.82, 1)
-				bindInteractiveSurface(optionButton, optionsMaid, optionButton, optionStroke, nil, {
-					NormalColor = Theme.Input,
-					HoverColor = Theme.InputHover,
-					StrokeTransparency = 0.82,
-					HoverStrokeTransparency = 0.55,
+				makeTextLabel(optionButton, {
+					Name = "OptionText",
+					Position = UDim2.fromOffset(12, 0),
+					Size = UDim2.new(1, selected and -46 or -24, 1, 0),
+					Font = Enum.Font.GothamMedium,
+					Text = tostring(optionValue),
+					TextColor3 = Theme.Text,
+					TextXAlignment = Enum.TextXAlignment.Left,
+					TextSize = 13,
+					TextTruncate = Enum.TextTruncate.AtEnd,
+					ZIndex = 16,
 				})
+				local optionStroke = addInsetStroke(
+					optionButton,
+					CONTROL_CORNER_RADIUS,
+					selected and Theme.Accent or Theme.Stroke,
+					selected and 0.18 or 0.82,
+					2,
+					15
+				)
+
+				if selected then
+					makeTextLabel(optionButton, {
+						AnchorPoint = Vector2.new(1, 0.5),
+						Position = UDim2.new(1, -11, 0.5, 0),
+						Size = UDim2.fromOffset(18, 18),
+						Font = Enum.Font.GothamBold,
+						Text = "✓",
+						TextColor3 = Theme.AccentHover,
+						TextSize = 13,
+						ZIndex = 16,
+					})
+				end
+
+				bindInteractiveSurface(optionButton, optionsMaid, optionButton, optionStroke, nil, {
+					NormalColor = selected and Theme.Selected or Theme.Input,
+					HoverColor = Theme.InputHover,
+					StrokeColor = selected and Theme.Accent or Theme.Stroke,
+					HoverStrokeColor = Theme.AccentHover,
+					StrokeTransparency = selected and 0.18 or 0.82,
+					HoverStrokeTransparency = selected and 0.08 or 0.44,
+				})
+
 				optionsMaid:Give(optionButton.MouseButton1Click:Connect(function()
-					setValue(optionValue, true)
-					setOpened(false)
+					if multi then
+						if selectedValues[optionValue] then
+							selectedValues[optionValue] = nil
+						else
+							selectedValues[optionValue] = true
+						end
+						updateSelectedLabel()
+						safeCallback(config.Callback, table.clone(getMultiValues()))
+						rebuildOptions()
+					else
+						setValue(optionValue, true)
+						setOpened(false)
+						rebuildOptions()
+					end
 				end))
 			end
 		end
@@ -1145,31 +1259,91 @@ function SectionMethods:CreateDropdown(config)
 		end
 	end
 
-	bindInteractiveSurface(selector, maid, selector, selectorStroke, nil, {
-		NormalColor = Theme.Input,
-		HoverColor = Theme.InputHover,
-		StrokeTransparency = 0.68,
-		HoverStrokeTransparency = 0.42,
-	})
+	maid:Give(selector.MouseEnter:Connect(function()
+		playTween(selector, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.InputHover })
+		playTween(selectorStroke, FAST_TWEEN_INFO, {
+			Color = opened and Theme.Accent or Theme.AccentSoft,
+			Transparency = opened and 0.18 or 0.38,
+		})
+	end))
+	maid:Give(selector.MouseLeave:Connect(function()
+		playTween(selector, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.Input })
+		playTween(selectorStroke, FAST_TWEEN_INFO, {
+			Color = opened and Theme.Accent or Theme.Stroke,
+			Transparency = opened and 0.24 or 0.68,
+		})
+	end))
 	maid:Give(selector.MouseButton1Click:Connect(function()
 		setOpened(not opened)
 	end))
 
+	updateSelectedLabel()
 	rebuildOptions()
 
 	local api = {}
 	function api:SetValue(newValue, fireCallback)
 		setValue(newValue, fireCallback)
+		rebuildOptions()
 	end
 	function api:GetValue()
+		if multi then
+			return table.clone(getMultiValues())
+		end
 		return value
 	end
 	function api:SetOptions(newOptions, keepValue)
 		options = table.clone(newOptions or {})
 		if not keepValue then
 			setValue(nil, false)
+		elseif multi then
+			for selectedValue in pairs(selectedValues) do
+				if not optionExists(selectedValue) then
+					selectedValues[selectedValue] = nil
+				end
+			end
+			updateSelectedLabel()
+		elseif value ~= nil and not optionExists(value) then
+			setValue(nil, false)
 		end
 		rebuildOptions()
+	end
+	function api:Select(optionValue, fireCallback)
+		if not multi or not optionExists(optionValue) then
+			return
+		end
+		selectedValues[optionValue] = true
+		updateSelectedLabel()
+		rebuildOptions()
+		if fireCallback ~= false then
+			safeCallback(config.Callback, table.clone(getMultiValues()))
+		end
+	end
+	function api:Deselect(optionValue, fireCallback)
+		if not multi then
+			return
+		end
+		selectedValues[optionValue] = nil
+		updateSelectedLabel()
+		rebuildOptions()
+		if fireCallback ~= false then
+			safeCallback(config.Callback, table.clone(getMultiValues()))
+		end
+	end
+	function api:Clear(fireCallback)
+		if multi then
+			table.clear(selectedValues)
+			updateSelectedLabel()
+			rebuildOptions()
+			if fireCallback ~= false then
+				safeCallback(config.Callback, {})
+			end
+		else
+			setValue(nil, fireCallback)
+			rebuildOptions()
+		end
+	end
+	function api:IsMulti()
+		return multi
 	end
 	function api:SetOpen(isOpen)
 		setOpened(isOpen)
@@ -1900,6 +2074,46 @@ function WindowMethods:_clampToViewport(viewport, effectiveScale)
 	self._main.Position = UDim2.fromScale(center.X / math.max(viewport.X, 1), center.Y / math.max(viewport.Y, 1))
 end
 
+function WindowMethods:_clampMiniPlayer(viewport)
+	if self._destroyed or not self._miniPlayer then
+		return
+	end
+
+	local currentViewport = viewport
+	if not currentViewport then
+		local camera = Workspace.CurrentCamera
+		currentViewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+	end
+
+	if not self._miniWasDragged then
+		self._miniPlayer.AnchorPoint = Vector2.new(1, 1)
+		self._miniPlayer.Position = UDim2.new(1, -MINI_PLAYER_MARGIN, 1, -MINI_PLAYER_MARGIN)
+		return
+	end
+
+	local scale = self._miniEffectiveScale or 1
+	local renderedSize = MINI_PLAYER_SIZE * scale
+	local position = self._miniPlayer.Position
+	local anchor = Vector2.new(
+		currentViewport.X * position.X.Scale + position.X.Offset,
+		currentViewport.Y * position.Y.Scale + position.Y.Offset
+	)
+
+	anchor = Vector2.new(
+		math.clamp(anchor.X, renderedSize.X + 6, math.max(renderedSize.X + 6, currentViewport.X - 6)),
+		math.clamp(anchor.Y, renderedSize.Y + 6, math.max(renderedSize.Y + 6, currentViewport.Y - 6))
+	)
+
+	self._miniPlayer.AnchorPoint = Vector2.new(1, 1)
+	self._miniPlayer.Position = UDim2.fromOffset(anchor.X, anchor.Y)
+end
+
+function WindowMethods:ResetMiniPlayerPosition()
+	self._miniWasDragged = false
+	self:_clampMiniPlayer()
+	return self
+end
+
 function WindowMethods:_syncWindowLayers()
 	if self._destroyed then
 		return
@@ -1928,6 +2142,17 @@ function WindowMethods:_cancelVisibilityTweens()
 	self._visibilityAnimating = false
 end
 
+function WindowMethods:_updateNotificationInset()
+	if not self._notificationPadding then
+		return
+	end
+	local bottomInset = 18
+	if self._visible and self._minimized then
+		bottomInset = math.floor(MINI_PLAYER_MARGIN + MINI_PLAYER_SIZE.Y * (self._miniEffectiveScale or 1) + 12)
+	end
+	self._notificationPadding.PaddingBottom = UDim.new(0, bottomInset)
+end
+
 function WindowMethods:_setLayerVisibility(visible)
 	local showMain = visible and not self._minimized
 	local showMini = visible and self._minimized
@@ -1939,6 +2164,7 @@ function WindowMethods:_setLayerVisibility(visible)
 		self._miniPlayer.Visible = showMini
 	end
 	self._notificationContainer.Visible = visible
+	self:_updateNotificationInset()
 end
 
 function WindowMethods:_cancelResponsiveTweens()
@@ -2150,6 +2376,7 @@ function WindowMethods:SetVisible(visible, instant)
 end
 
 function WindowMethods:_cancelModeTransition()
+	self._modeTransitionId = (self._modeTransitionId or 0) + 1
 	if self._modeMaid then
 		self._modeMaid:Cleanup()
 	end
@@ -2176,8 +2403,9 @@ function WindowMethods:SetMinimized(minimized, instant)
 
 	self:_cancelVisibilityTweens()
 	self:_cancelModeTransition()
+	local transitionId = self._modeTransitionId
 	self._minimized = targetMinimized
-	self:_updateResponsiveScale()
+	self:_updateResponsiveScale(false)
 
 	if not self._visible then
 		self:_setLayerVisibility(false)
@@ -2188,8 +2416,14 @@ function WindowMethods:SetMinimized(minimized, instant)
 	local mainScale = self._effectiveScale or self._uiScale.Scale
 	local miniScale = self._miniEffectiveScale or self._miniScale.Scale
 
-	if not animate then
-		self:_setLayerVisibility(true)
+	local function applyFinalState()
+		if self._destroyed or self._minimized ~= targetMinimized or self._modeTransitionId ~= transitionId then
+			return
+		end
+		self._main.Visible = not targetMinimized
+		self._outline.Visible = not targetMinimized
+		self._shadow.Visible = not targetMinimized
+		self._miniPlayer.Visible = targetMinimized
 		self._main.GroupTransparency = targetMinimized and 1 or 0
 		self._outlineStroke.Transparency = targetMinimized and 1 or WINDOW_OUTLINE_TRANSPARENCY
 		self._shadow.BackgroundTransparency = targetMinimized and 1 or WINDOW_SHADOW_TRANSPARENCY
@@ -2198,59 +2432,102 @@ function WindowMethods:SetMinimized(minimized, instant)
 		self._outlineScale.Scale = mainScale
 		self._shadowScale.Scale = mainScale
 		self._miniScale.Scale = miniScale
+		if targetMinimized then
+			self:_clampMiniPlayer()
+		end
+		self:_updateNotificationInset()
+	end
+
+	if not animate then
+		applyFinalState()
 		return self
 	end
 
-	self._main.Visible = true
-	self._outline.Visible = true
-	self._shadow.Visible = true
-	self._miniPlayer.Visible = true
-
-	local completionTween
-	if targetMinimized then
-		self._miniPlayer.GroupTransparency = 1
-		self._miniScale.Scale = miniScale * 0.94
-		self._modeMaid:Give(playTween(self._main, FADE_TWEEN_INFO, { GroupTransparency = 1 }))
-		self._modeMaid:Give(playTween(self._outlineStroke, FADE_TWEEN_INFO, { Transparency = 1 }))
-		self._modeMaid:Give(playTween(self._shadow, FADE_TWEEN_INFO, { BackgroundTransparency = 1 }))
-		self._modeMaid:Give(playTween(self._uiScale, TWEEN_INFO, { Scale = mainScale * 0.975 }))
-		self._modeMaid:Give(playTween(self._miniPlayer, FADE_TWEEN_INFO, { GroupTransparency = 0 }))
-		completionTween = playTween(self._miniScale, POP_TWEEN_INFO, { Scale = miniScale })
-		self._modeMaid:Give(completionTween)
-	else
-		self._main.GroupTransparency = 1
-		self._outlineStroke.Transparency = 1
-		self._shadow.BackgroundTransparency = 1
-		self._uiScale.Scale = mainScale * 0.965
-		self._outlineScale.Scale = mainScale * 0.965
-		self._shadowScale.Scale = mainScale * 0.965
-		self._modeMaid:Give(playTween(self._miniPlayer, FADE_TWEEN_INFO, { GroupTransparency = 1 }))
-		self._modeMaid:Give(playTween(self._miniScale, TWEEN_INFO, { Scale = miniScale * 0.95 }))
-		self._modeMaid:Give(
-			playTween(self._outlineStroke, FADE_TWEEN_INFO, { Transparency = WINDOW_OUTLINE_TRANSPARENCY })
-		)
-		self._modeMaid:Give(
-			playTween(self._shadow, FADE_TWEEN_INFO, { BackgroundTransparency = WINDOW_SHADOW_TRANSPARENCY })
-		)
-		completionTween = playTween(self._main, FADE_TWEEN_INFO, { GroupTransparency = 0 })
-		self._modeMaid:Give(completionTween)
-		self._modeMaid:Give(playTween(self._uiScale, POP_TWEEN_INFO, { Scale = mainScale }))
-		self._modeMaid:Give(playTween(self._outlineScale, POP_TWEEN_INFO, { Scale = mainScale }))
-		self._modeMaid:Give(playTween(self._shadowScale, POP_TWEEN_INFO, { Scale = mainScale }))
+	local function onCompleted(tween, callback)
+		local connection
+		connection = tween.Completed:Connect(function()
+			if connection then
+				connection:Disconnect()
+			end
+			callback()
+		end)
+		self._modeMaid:Give(connection)
 	end
 
-	self._modeMaid:Give(completionTween.Completed:Connect(function()
-		if self._destroyed or self._minimized ~= targetMinimized then
-			return
-		end
-		self:_setLayerVisibility(true)
-		self._main.GroupTransparency = targetMinimized and 1 or 0
-		self._miniPlayer.GroupTransparency = targetMinimized and 0 or 1
-		self._uiScale.Scale = mainScale
-		self._outlineScale.Scale = mainScale
-		self._shadowScale.Scale = mainScale
+	if targetMinimized then
+		self._main.Visible = true
+		self._outline.Visible = true
+		self._shadow.Visible = true
+		self._miniPlayer.Visible = false
+		self._main.GroupTransparency = 0
+		self._outlineStroke.Transparency = WINDOW_OUTLINE_TRANSPARENCY
+		self._shadow.BackgroundTransparency = WINDOW_SHADOW_TRANSPARENCY
+
+		local fadeMain = playTween(self._main, FADE_TWEEN_INFO, { GroupTransparency = 1 })
+		self._modeMaid:Give(fadeMain)
+		self._modeMaid:Give(playTween(self._outlineStroke, FADE_TWEEN_INFO, { Transparency = 1 }))
+		self._modeMaid:Give(playTween(self._shadow, FADE_TWEEN_INFO, { BackgroundTransparency = 1 }))
+		self._modeMaid:Give(playTween(self._uiScale, FADE_TWEEN_INFO, { Scale = mainScale * 0.98 }))
+		self._modeMaid:Give(playTween(self._outlineScale, FADE_TWEEN_INFO, { Scale = mainScale * 0.98 }))
+		self._modeMaid:Give(playTween(self._shadowScale, FADE_TWEEN_INFO, { Scale = mainScale * 0.98 }))
+
+		onCompleted(fadeMain, function()
+			if self._destroyed or self._minimized ~= targetMinimized or self._modeTransitionId ~= transitionId then
+				return
+			end
+			self._main.Visible = false
+			self._outline.Visible = false
+			self._shadow.Visible = false
+			self:_clampMiniPlayer()
+			self._miniPlayer.Visible = true
+			self._miniPlayer.GroupTransparency = 1
+			self._miniScale.Scale = miniScale * 0.96
+			local fadeMini = playTween(self._miniPlayer, FADE_TWEEN_INFO, { GroupTransparency = 0 })
+			self._modeMaid:Give(fadeMini)
+			self._modeMaid:Give(playTween(self._miniScale, POP_TWEEN_INFO, { Scale = miniScale }))
+			onCompleted(fadeMini, applyFinalState)
+		end)
+	else
+		self._main.Visible = false
+		self._outline.Visible = false
+		self._shadow.Visible = false
+		self._miniPlayer.Visible = true
+		self._miniPlayer.GroupTransparency = 0
 		self._miniScale.Scale = miniScale
-	end))
+
+		local fadeMini = playTween(self._miniPlayer, FADE_TWEEN_INFO, { GroupTransparency = 1 })
+		self._modeMaid:Give(fadeMini)
+		self._modeMaid:Give(playTween(self._miniScale, FADE_TWEEN_INFO, { Scale = miniScale * 0.96 }))
+
+		onCompleted(fadeMini, function()
+			if self._destroyed or self._minimized ~= targetMinimized or self._modeTransitionId ~= transitionId then
+				return
+			end
+			self._miniPlayer.Visible = false
+			self._main.Visible = true
+			self._outline.Visible = true
+			self._shadow.Visible = true
+			self._main.GroupTransparency = 1
+			self._outlineStroke.Transparency = 1
+			self._shadow.BackgroundTransparency = 1
+			self._uiScale.Scale = mainScale * 0.98
+			self._outlineScale.Scale = mainScale * 0.98
+			self._shadowScale.Scale = mainScale * 0.98
+
+			local fadeMain = playTween(self._main, FADE_TWEEN_INFO, { GroupTransparency = 0 })
+			self._modeMaid:Give(fadeMain)
+			self._modeMaid:Give(playTween(self._outlineStroke, FADE_TWEEN_INFO, {
+				Transparency = WINDOW_OUTLINE_TRANSPARENCY,
+			}))
+			self._modeMaid:Give(playTween(self._shadow, FADE_TWEEN_INFO, {
+				BackgroundTransparency = WINDOW_SHADOW_TRANSPARENCY,
+			}))
+			self._modeMaid:Give(playTween(self._uiScale, POP_TWEEN_INFO, { Scale = mainScale }))
+			self._modeMaid:Give(playTween(self._outlineScale, POP_TWEEN_INFO, { Scale = mainScale }))
+			self._modeMaid:Give(playTween(self._shadowScale, POP_TWEEN_INFO, { Scale = mainScale }))
+			onCompleted(fadeMain, applyFinalState)
+		end)
+	end
 
 	return self
 end
@@ -2320,13 +2597,13 @@ function WindowMethods:SetSettingsPanelVisible(visible, instant)
 	end
 
 	local panelWidth = self._settingsPanelWidth or SETTINGS_PANEL_MAX_WIDTH
-	local shownPosition = UDim2.new(1, -(panelWidth + 10), 0, 10)
-	local hiddenPosition = UDim2.new(1, 16, 0, 10)
+	local shownPosition = UDim2.new(1, -panelWidth, 0, 0)
+	local hiddenPosition = UDim2.new(1, 0, 0, 0)
 	local animate = self._animationsEnabled and instant ~= true and self._visible
 
 	if not animate then
 		self._settingsBackdrop.Visible = open
-		self._settingsBackdrop.BackgroundTransparency = open and 0.5 or 1
+		self._settingsBackdrop.BackgroundTransparency = open and 0.58 or 1
 		self._settingsPanel.Visible = open
 		self._settingsPanel.Position = open and shownPosition or hiddenPosition
 		self._settingsPanel.GroupTransparency = open and 0 or 1
@@ -2341,9 +2618,9 @@ function WindowMethods:SetSettingsPanelVisible(visible, instant)
 	end
 
 	self._settingsBackdropTween = playTween(self._settingsBackdrop, FADE_TWEEN_INFO, {
-		BackgroundTransparency = open and 0.5 or 1,
+		BackgroundTransparency = open and 0.58 or 1,
 	})
-	self._settingsPanelTween = playTween(self._settingsPanel, POP_TWEEN_INFO, {
+	self._settingsPanelTween = playTween(self._settingsPanel, TWEEN_INFO, {
 		Position = open and shownPosition or hiddenPosition,
 	})
 	self._settingsPanelFadeTween = playTween(self._settingsPanel, FADE_TWEEN_INFO, {
@@ -2480,13 +2757,16 @@ function WindowMethods:_updateResponsiveScale(animated)
 	local panelWidth = compact and math.min(SETTINGS_PANEL_MIN_WIDTH, math.max(self._baseSize.X - 28, 260))
 		or math.clamp(self._baseSize.X * 0.38, SETTINGS_PANEL_MIN_WIDTH, SETTINGS_PANEL_MAX_WIDTH)
 	self._settingsPanelWidth = panelWidth
-	self._settingsBackdrop.Size = UDim2.new(1, 0, 1, -nowPlayingHeight)
-	self._settingsPanel.Size = UDim2.new(0, panelWidth, 1, -(nowPlayingHeight + 20))
-	self._settingsPanel.Position = self._settingsPanelOpen and UDim2.new(1, -(panelWidth + 10), 0, 10)
-		or UDim2.new(1, 16, 0, 10)
+	self._settingsViewport.Position = UDim2.fromOffset(10, 10)
+	self._settingsViewport.Size = UDim2.new(1, -20, 1, -(nowPlayingHeight + 20))
+	self._settingsBackdrop.Size = UDim2.fromScale(1, 1)
+	self._settingsPanel.Size = UDim2.new(0, panelWidth, 1, 0)
+	self._settingsPanel.Position = self._settingsPanelOpen and UDim2.new(1, -panelWidth, 0, 0) or UDim2.new(1, 0, 0, 0)
 
 	self:_syncWindowLayers()
 	self:_clampToViewport(viewport, effectiveScale)
+	self:_clampMiniPlayer(viewport)
+	self:_updateNotificationInset()
 end
 
 function WindowMethods:_bindCurrentCamera()
@@ -3707,31 +3987,47 @@ function Library:CreateWindow(config)
 		playTween(gameIconScale, FAST_TWEEN_INFO, { Scale = 1 })
 	end))
 
-	-- Settings deixa de substituir a página central e passa a ocupar um painel
-	-- lateral sobreposto, semelhante ao painel de contexto do Spotify desktop.
-	local settingsBackdrop = makeTextButton(main, {
+	-- Settings ocupa um viewport interno recuado das bordas da janela.
+	-- O painel nasce dentro desse viewport e nunca atravessa os cantos externos.
+	local settingsViewport = create("Frame", {
+		Name = "SettingsViewport",
+		Position = UDim2.fromOffset(10, 10),
+		Size = UDim2.new(1, -20, 1, -(initialNowPlayingHeight + 20)),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 51,
+		Parent = main,
+	})
+	addCorner(settingsViewport, PANEL_CORNER_RADIUS)
+
+	local settingsBackdrop = makeTextButton(settingsViewport, {
 		Name = "SettingsBackdrop",
-		Size = UDim2.new(1, 0, 1, -initialNowPlayingHeight),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Theme.Shadow,
 		BackgroundTransparency = 1,
 		Text = "",
 		Visible = false,
 		ZIndex = 52,
 	})
+	addCorner(settingsBackdrop, PANEL_CORNER_RADIUS)
 
 	local initialSettingsWidth = math.clamp(baseSize.X * 0.38, SETTINGS_PANEL_MIN_WIDTH, SETTINGS_PANEL_MAX_WIDTH)
 	local settingsPanel = create("CanvasGroup", {
 		Name = "SettingsPanel",
-		Position = UDim2.new(1, 16, 0, 10),
-		Size = UDim2.new(0, initialSettingsWidth, 1, -(initialNowPlayingHeight + 20)),
+		Position = UDim2.new(1, 0, 0, 0),
+		Size = UDim2.new(0, initialSettingsWidth, 1, 0),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
-		ClipsDescendants = false,
+		ClipsDescendants = true,
 		GroupTransparency = 1,
 		Visible = false,
 		ZIndex = 60,
-		Parent = main,
+		Parent = settingsViewport,
 	})
+	-- O próprio CanvasGroup também recebe corner; assim o recorte da animação
+	-- nunca volta a ser retangular enquanto o painel desliza.
+	addCorner(settingsPanel, PANEL_CORNER_RADIUS)
 
 	local settingsSurface = create("Frame", {
 		Name = "Surface",
@@ -3739,13 +4035,25 @@ function Library:CreateWindow(config)
 		BackgroundColor3 = Theme.Sidebar,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
-		Active = true, -- impede o backdrop de receber cliques feitos dentro do painel
+		Active = true,
 		ZIndex = 60,
 		Parent = settingsPanel,
 	})
 	addCorner(settingsSurface, PANEL_CORNER_RADIUS)
 	addGradient(settingsSurface, Color3.fromRGB(28, 28, 28), Color3.fromRGB(18, 18, 18), 90)
-	addInsetStroke(settingsPanel, PANEL_CORNER_RADIUS, Theme.Outline, 0.28, 2, 70)
+
+	local settingsBorder = create("Frame", {
+		Name = "Border",
+		Position = UDim2.fromOffset(2, 2),
+		Size = UDim2.new(1, -4, 1, -4),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Active = false,
+		ZIndex = 70,
+		Parent = settingsPanel,
+	})
+	addCorner(settingsBorder, PANEL_CORNER_RADIUS - 2)
+	addStroke(settingsBorder, Theme.Outline, 0.28, 2)
 
 	local settingsHeader = create("Frame", {
 		Name = "Header",
@@ -3830,12 +4138,12 @@ function Library:CreateWindow(config)
 		Parent = settingsSurface,
 	})
 
-	-- Mini player inspirado no popup mobile do Spotify. A imagem do jogo ocupa
-	-- todo o fundo e a camada escura preserva a leitura em qualquer thumbnail.
+	-- Mini player compacto, ancorado no canto inferior direito e arrastável.
+	-- A escala é compartilhada com a janela principal.
 	local miniPlayer = create("CanvasGroup", {
 		Name = "MiniPlayer",
-		AnchorPoint = Vector2.new(0.5, 1),
-		Position = UDim2.new(0.5, 0, 1, -MINI_PLAYER_MARGIN),
+		AnchorPoint = Vector2.new(1, 1),
+		Position = UDim2.new(1, -MINI_PLAYER_MARGIN, 1, -MINI_PLAYER_MARGIN),
 		Size = UDim2.fromOffset(MINI_PLAYER_SIZE.X, MINI_PLAYER_SIZE.Y),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -3848,15 +4156,15 @@ function Library:CreateWindow(config)
 	local miniScale = create("UIScale", { Scale = 1, Parent = miniPlayer })
 
 	local miniShadow = create("Frame", {
-		Position = UDim2.fromOffset(4, 8),
-		Size = UDim2.new(1, -8, 1, -6),
+		Position = UDim2.fromOffset(3, 6),
+		Size = UDim2.new(1, -6, 1, -3),
 		BackgroundColor3 = Theme.Shadow,
-		BackgroundTransparency = 0.44,
+		BackgroundTransparency = 0.48,
 		BorderSizePixel = 0,
 		ZIndex = 120,
 		Parent = miniPlayer,
 	})
-	addCorner(miniShadow, 30)
+	addCorner(miniShadow, 22)
 
 	local miniSurface = create("ImageLabel", {
 		Name = "Surface",
@@ -3865,17 +4173,17 @@ function Library:CreateWindow(config)
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		Image = tostring(config.GameIcon or defaultIcon),
-		ImageTransparency = 0.04,
+		ImageTransparency = 0.03,
 		ScaleType = Enum.ScaleType.Crop,
 		ZIndex = 121,
 		Parent = miniPlayer,
 	})
-	addCorner(miniSurface, 28)
+	addCorner(miniSurface, 20)
 
 	local miniDarkOverlay = create("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Color3.fromRGB(8, 8, 8),
-		BackgroundTransparency = 0.22,
+		BackgroundTransparency = 0.18,
 		BorderSizePixel = 0,
 		ZIndex = 122,
 		Parent = miniSurface,
@@ -3886,66 +4194,76 @@ function Library:CreateWindow(config)
 			ColorSequenceKeypoint.new(1, Color3.fromRGB(3, 3, 3)),
 		}),
 		Transparency = NumberSequence.new({
-			NumberSequenceKeypoint.new(0, 0.16),
-			NumberSequenceKeypoint.new(0.52, 0.36),
-			NumberSequenceKeypoint.new(1, 0.05),
+			NumberSequenceKeypoint.new(0, 0.18),
+			NumberSequenceKeypoint.new(0.55, 0.34),
+			NumberSequenceKeypoint.new(1, 0.04),
 		}),
 		Rotation = 90,
 		Parent = miniDarkOverlay,
 	})
-	addInsetStroke(miniPlayer, 28, Theme.Outline, 0.18, 2, 140)
+	addInsetStroke(miniPlayer, 20, Theme.Outline, 0.16, 2, 140)
+
+	local miniDragHandle = create("Frame", {
+		Name = "DragHandle",
+		Size = UDim2.new(1, 0, 0, 102),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Active = true,
+		ZIndex = 124,
+		Parent = miniSurface,
+	})
 
 	local miniGameIcon = miniSurface
 	makeTextLabel(miniSurface, {
-		Position = UDim2.fromOffset(28, 22),
-		Size = UDim2.new(1, -90, 0, 20),
+		Position = UDim2.fromOffset(18, 12),
+		Size = UDim2.new(1, -68, 0, 16),
 		Font = Enum.Font.GothamMedium,
 		Text = "●  Experiência em execução",
 		TextColor3 = Theme.Text,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextSize = 12,
+		TextSize = 10,
 		ZIndex = 125,
 	})
 
 	local expandButton = makeTextButton(miniSurface, {
-		Position = UDim2.new(1, -54, 0, 18),
-		Size = UDim2.fromOffset(36, 36),
+		Position = UDim2.new(1, -42, 0, 10),
+		Size = UDim2.fromOffset(28, 28),
 		BackgroundColor3 = Color3.fromRGB(22, 22, 22),
-		BackgroundTransparency = 0.18,
+		BackgroundTransparency = 0.16,
 		Text = "↗",
 		TextColor3 = Theme.Text,
-		TextSize = 16,
+		TextSize = 13,
 		ZIndex = 128,
 	})
-	addCorner(expandButton, 18)
+	addCorner(expandButton, 14)
 	local expandStroke = addStroke(expandButton, Theme.Text, 0.68, 2)
 	local expandScale = create("UIScale", { Scale = 1, Parent = expandButton })
 
 	local miniGameNameLabel = makeTextLabel(miniSurface, {
-		Position = UDim2.fromOffset(28, 70),
-		Size = UDim2.new(1, -56, 0, 32),
+		Position = UDim2.fromOffset(18, 45),
+		Size = UDim2.new(1, -36, 0, 23),
 		Font = Enum.Font.GothamBold,
 		Text = tostring(config.GameName or game.Name or "Experiência Roblox"),
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextSize = 22,
+		TextSize = 16,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 125,
 	})
 	local miniGameCreatorLabel = makeTextLabel(miniSurface, {
-		Position = UDim2.fromOffset(28, 104),
-		Size = UDim2.new(1, -56, 0, 22),
+		Position = UDim2.fromOffset(18, 69),
+		Size = UDim2.new(1, -36, 0, 18),
 		Font = Enum.Font.GothamMedium,
 		Text = tostring(config.GameCreator or "Criador do jogo"),
 		TextColor3 = Theme.Subtext,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextSize = 13,
+		TextSize = 11,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 125,
 	})
 
 	local miniSessionTrack = create("Frame", {
-		Position = UDim2.fromOffset(28, 150),
-		Size = UDim2.new(1, -56, 0, 5),
+		Position = UDim2.fromOffset(18, 105),
+		Size = UDim2.new(1, -36, 0, 4),
 		BackgroundColor3 = Color3.fromRGB(190, 190, 190),
 		BackgroundTransparency = 0.34,
 		BorderSizePixel = 0,
@@ -3953,7 +4271,7 @@ function Library:CreateWindow(config)
 		ZIndex = 125,
 		Parent = miniSurface,
 	})
-	addCorner(miniSessionTrack, 3)
+	addCorner(miniSessionTrack, 2)
 	local miniSessionFill = create("Frame", {
 		Size = UDim2.new(0, 0, 1, 0),
 		BackgroundColor3 = Theme.Text,
@@ -3962,90 +4280,90 @@ function Library:CreateWindow(config)
 		ZIndex = 126,
 		Parent = miniSessionTrack,
 	})
-	addCorner(miniSessionFill, 3)
+	addCorner(miniSessionFill, 2)
 	local miniSessionKnob = create("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.new(0, 0, 0.5, 0),
-		Size = UDim2.fromOffset(13, 13),
+		Size = UDim2.fromOffset(11, 11),
 		BackgroundColor3 = Theme.Text,
 		BorderSizePixel = 0,
 		Visible = false,
 		ZIndex = 127,
 		Parent = miniSessionTrack,
 	})
-	addCorner(miniSessionKnob, 7)
+	addCorner(miniSessionKnob, 6)
 	addStroke(miniSessionKnob, Theme.Shadow, 0.5, 2)
 
 	local miniSessionElapsedLabel = makeTextLabel(miniSurface, {
-		Position = UDim2.fromOffset(28, 162),
-		Size = UDim2.fromOffset(110, 18),
+		Position = UDim2.fromOffset(18, 114),
+		Size = UDim2.fromOffset(92, 16),
 		Font = Enum.Font.GothamMedium,
 		Text = "0:00",
 		TextColor3 = Theme.Subtext,
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextSize = 11,
+		TextSize = 9,
 		ZIndex = 125,
 	})
 	local miniSessionTotalLabel = makeTextLabel(miniSurface, {
 		AnchorPoint = Vector2.new(1, 0),
-		Position = UDim2.new(1, -28, 0, 162),
-		Size = UDim2.fromOffset(120, 18),
+		Position = UDim2.new(1, -18, 0, 114),
+		Size = UDim2.fromOffset(100, 16),
 		Font = Enum.Font.GothamMedium,
 		Text = sessionTimerDuration and formatElapsedTime(sessionTimerDuration) or "Sem limite",
 		TextColor3 = Theme.Subtext,
 		TextXAlignment = Enum.TextXAlignment.Right,
-		TextSize = 11,
+		TextSize = 9,
 		ZIndex = 125,
 	})
 
 	local miniControls = create("Frame", {
 		AnchorPoint = Vector2.new(0.5, 0),
-		Position = UDim2.new(0.5, 0, 0, 194),
-		Size = UDim2.fromOffset(224, 58),
+		Position = UDim2.new(0.5, 0, 0, 137),
+		Size = UDim2.fromOffset(158, 46),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 125,
 		Parent = miniSurface,
 	})
 	local miniScaleMinus = makeTextButton(miniControls, {
-		Position = UDim2.fromOffset(12, 10),
-		Size = UDim2.fromOffset(38, 38),
+		Position = UDim2.fromOffset(4, 7),
+		Size = UDim2.fromOffset(32, 32),
 		BackgroundColor3 = Color3.fromRGB(22, 22, 22),
-		BackgroundTransparency = 0.16,
+		BackgroundTransparency = 0.14,
 		Text = "−",
 		TextColor3 = Theme.Text,
-		TextSize = 20,
+		TextSize = 17,
 		ZIndex = 127,
 	})
-	addCorner(miniScaleMinus, 19)
+	addCorner(miniScaleMinus, 16)
 	local miniScaleMinusStroke = addStroke(miniScaleMinus, Theme.Text, 0.74, 2)
 	local miniScaleMinusScale = create("UIScale", { Scale = 1, Parent = miniScaleMinus })
 
 	local miniScaleLabel = makeTextLabel(miniControls, {
-		Position = UDim2.fromOffset(82, 3),
-		Size = UDim2.fromOffset(60, 52),
+		Position = UDim2.fromOffset(58, 3),
+		Size = UDim2.fromOffset(42, 40),
 		BackgroundColor3 = Theme.Text,
 		BackgroundTransparency = 0,
 		Font = Enum.Font.GothamBold,
 		Text = "100%",
 		TextColor3 = Theme.Background,
-		TextSize = 12,
+		TextSize = 10,
 		ZIndex = 127,
 	})
-	addCorner(miniScaleLabel, 26)
+	addCorner(miniScaleLabel, 20)
 	addStroke(miniScaleLabel, Theme.Text, 0.18, 2)
 
 	local miniScalePlus = makeTextButton(miniControls, {
-		Position = UDim2.fromOffset(174, 10),
-		Size = UDim2.fromOffset(38, 38),
+		Position = UDim2.fromOffset(122, 7),
+		Size = UDim2.fromOffset(32, 32),
 		BackgroundColor3 = Color3.fromRGB(22, 22, 22),
-		BackgroundTransparency = 0.16,
+		BackgroundTransparency = 0.14,
 		Text = "+",
 		TextColor3 = Theme.Text,
-		TextSize = 19,
+		TextSize = 16,
 		ZIndex = 127,
 	})
-	addCorner(miniScalePlus, 19)
+	addCorner(miniScalePlus, 16)
 	local miniScalePlusStroke = addStroke(miniScalePlus, Theme.Text, 0.74, 2)
 	local miniScalePlusScale = create("UIScale", { Scale = 1, Parent = miniScalePlus })
 
@@ -4060,7 +4378,7 @@ function Library:CreateWindow(config)
 		ZIndex = 200,
 		Parent = screenGui,
 	})
-	create("UIPadding", {
+	local notificationPadding = create("UIPadding", {
 		PaddingTop = UDim.new(0, 18),
 		PaddingBottom = UDim.new(0, 18),
 		PaddingLeft = UDim.new(0, 18),
@@ -4083,6 +4401,7 @@ function Library:CreateWindow(config)
 		_maid = maid,
 		_cameraMaid = cameraMaid,
 		_modeMaid = Maid.new(),
+		_modeTransitionId = 0,
 		_screenGui = screenGui,
 		_shadow = shadow,
 		_shadowScale = shadowScale,
@@ -4103,6 +4422,7 @@ function Library:CreateWindow(config)
 		_topbarAccent = topbarAccent,
 		_pageContainer = pageContainer,
 		_settingsPageContainer = settingsPageContainer,
+		_settingsViewport = settingsViewport,
 		_settingsBackdrop = settingsBackdrop,
 		_settingsPanel = settingsPanel,
 		_settingsPanelOpen = false,
@@ -4131,12 +4451,14 @@ function Library:CreateWindow(config)
 		_miniSessionElapsedLabel = miniSessionElapsedLabel,
 		_miniSessionTotalLabel = miniSessionTotalLabel,
 		_miniScaleLabel = miniScaleLabel,
+		_miniWasDragged = false,
 		_sessionStartedAt = os.clock(),
 		_sessionTimerDuration = sessionTimerDuration,
 		_sessionTimerVisible = sessionTimerVisible,
 		_sessionLastDisplayedSecond = -1,
 		_nowPlayingVisible = config.ShowNowPlaying ~= false,
 		_notificationContainer = notificationContainer,
+		_notificationPadding = notificationPadding,
 		_notificationScale = notificationScale,
 		_notificationCounter = 0,
 		_tabs = {},
@@ -4371,6 +4693,69 @@ function Library:CreateWindow(config)
 		if dragging and (endedMouse or endedTouch) then
 			dragging = false
 			dragInput = nil
+		end
+	end))
+
+	local miniDragging = false
+	local miniDragInput = nil
+	local miniDragStart = Vector2.new()
+	local miniStartAnchor = Vector2.new()
+
+	maid:Give(miniDragHandle.InputBegan:Connect(function(input)
+		if
+			input.UserInputType == Enum.UserInputType.MouseButton1
+			or input.UserInputType == Enum.UserInputType.Touch
+		then
+			miniDragging = true
+			miniDragInput = input
+			miniDragStart = Vector2.new(input.Position.X, input.Position.Y)
+			local camera = Workspace.CurrentCamera
+			local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+			local position = miniPlayer.Position
+			miniStartAnchor = Vector2.new(
+				viewport.X * position.X.Scale + position.X.Offset,
+				viewport.Y * position.Y.Scale + position.Y.Offset
+			)
+		end
+	end))
+
+	maid:Give(UserInputService.InputChanged:Connect(function(input)
+		if not miniDragging then
+			return
+		end
+
+		local isMouseMovement = input.UserInputType == Enum.UserInputType.MouseMovement
+		local isTrackedTouch = miniDragInput
+			and miniDragInput.UserInputType == Enum.UserInputType.Touch
+			and input == miniDragInput
+		if not isMouseMovement and not isTrackedTouch then
+			return
+		end
+
+		local camera = Workspace.CurrentCamera
+		local viewport = camera and camera.ViewportSize or Vector2.new(1280, 720)
+		local currentPosition = Vector2.new(input.Position.X, input.Position.Y)
+		local desiredAnchor = miniStartAnchor + (currentPosition - miniDragStart)
+		local renderedSize = MINI_PLAYER_SIZE * (window._miniEffectiveScale or 1)
+
+		desiredAnchor = Vector2.new(
+			math.clamp(desiredAnchor.X, renderedSize.X + 6, math.max(renderedSize.X + 6, viewport.X - 6)),
+			math.clamp(desiredAnchor.Y, renderedSize.Y + 6, math.max(renderedSize.Y + 6, viewport.Y - 6))
+		)
+
+		window._miniWasDragged = true
+		miniPlayer.AnchorPoint = Vector2.new(1, 1)
+		miniPlayer.Position = UDim2.fromOffset(desiredAnchor.X, desiredAnchor.Y)
+	end))
+
+	maid:Give(UserInputService.InputEnded:Connect(function(input)
+		local endedMouse = input.UserInputType == Enum.UserInputType.MouseButton1
+		local endedTouch = miniDragInput
+			and miniDragInput.UserInputType == Enum.UserInputType.Touch
+			and input == miniDragInput
+		if miniDragging and (endedMouse or endedTouch) then
+			miniDragging = false
+			miniDragInput = nil
 		end
 	end))
 
