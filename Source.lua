@@ -1,4 +1,4 @@
--- Source Spotify Library 2.1.0
+-- Source Spotify Library 2.1.1
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8,7 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Library = {
-	Version = "2.1.0",
+	Version = "2.1.1",
 	_windows = {},
 	_windowCounter = 0,
 }
@@ -2625,27 +2625,28 @@ function LoadingController.new(window, screenGui, config)
 	end
 
 	local accentColor = config.LoadingColor or Theme.Accent
-	local overlay = create("CanvasGroup", {
+	local backdropTransparency = math.clamp(tonumber(config.LoadingBackdropTransparency) or 1, 0, 1)
+	local overlay = create("Frame", {
 		Name = "LoadingScreen",
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Color3.fromRGB(8, 8, 8),
+		BackgroundColor3 = config.LoadingBackdropColor or Color3.fromRGB(8, 8, 8),
+		BackgroundTransparency = backdropTransparency,
 		BorderSizePixel = 0,
-		BackgroundTransparency = 1,
-		GroupTransparency = 0,
 		Visible = true,
-		Active = true,
+		Active = config.LoadingBlockInput ~= false,
 		ZIndex = 300,
 		Parent = screenGui,
 	})
 	self._maid:Give(overlay)
-	addGradient(overlay, Color3.fromRGB(17, 17, 17), Color3.fromRGB(6, 6, 6), 115)
 
-	local card = create("Frame", {
+	local card = create("CanvasGroup", {
 		Name = "LoadingCard",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
 		Size = UDim2.new(0.86, 0, 0, LOADING_CARD_HEIGHT),
 		BackgroundColor3 = Theme.PanelAlt,
+		BackgroundTransparency = 0,
+		GroupTransparency = 0,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
 		ZIndex = 302,
@@ -2891,7 +2892,7 @@ function LoadingController:Play()
 	self._finishing = false
 	self:SetProgress(0, "Preparing interface")
 	self._overlay.Visible = true
-	self._overlay.GroupTransparency = 0
+	self._card.GroupTransparency = 0
 	self._cardScale.Scale = 0.96
 	playTween(self._cardScale, POP_TWEEN_INFO, { Scale = 1 })
 
@@ -2945,7 +2946,7 @@ function LoadingController:Finish(instant)
 			return
 		end
 		self._overlay.Visible = false
-		self._overlay.GroupTransparency = 1
+		self._card.GroupTransparency = 1
 		self._animationMaid:Cleanup()
 		self._finishing = false
 		safeCallback(self._onComplete, self._window)
@@ -2956,15 +2957,14 @@ function LoadingController:Finish(instant)
 		return self
 	end
 
-	local overlayTween =
-		playTween(self._overlay, TweenInfo.new(0.32, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-			GroupTransparency = 1,
-		})
+	local cardTween = playTween(self._card, TweenInfo.new(0.32, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+		GroupTransparency = 1,
+	})
 	playTween(self._cardScale, TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 		Scale = 0.975,
 	})
 	local connection
-	connection = overlayTween.Completed:Connect(function()
+	connection = cardTween.Completed:Connect(function()
 		if connection then
 			connection:Disconnect()
 		end

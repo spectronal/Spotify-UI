@@ -4,7 +4,7 @@
 
 A polished Roblox UI library written in Luau, inspired by Spotify's desktop and mobile interfaces.
 
-![Version](https://img.shields.io/badge/version-2.1.0-1DB954?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-2.1.1-1DB954?style=for-the-badge)
 ![Language](https://img.shields.io/badge/Luau-Roblox-00A2FF?style=for-the-badge)
 ![Theme](https://img.shields.io/badge/theme-Spotify-121212?style=for-the-badge)
 
@@ -12,7 +12,28 @@ A polished Roblox UI library written in Luau, inspired by Spotify's desktop and 
 
 ## Update logs
 
-### v2.1.0
+### v2.1.1
+
+#### Changed
+
+- The loading screen no longer adds a full-screen black background by default.
+- Loading now uses a transparent full-screen input layer and fades only the centered loading card.
+- The example script now follows the project `Source.lua` loader and the current showcase structure.
+
+#### Added
+
+- `LoadingBackdropTransparency` to optionally restore a dimmed loading backdrop. The default is `1` (fully transparent).
+- `LoadingBackdropColor` for customizing the optional loading backdrop color.
+- `LoadingBlockInput` for controlling whether the transparent loading layer captures input while loading.
+
+#### Fixed
+
+- The loading fade no longer changes the transparency of the entire screen-sized container.
+- The loading card now owns its own `CanvasGroup`, preventing the game view from fading with the UI card.
+
+<details>
+<summary><strong>v2.1.0</strong></summary>
+
 
 #### Added
 
@@ -33,6 +54,8 @@ A polished Roblox UI library written in Luau, inspired by Spotify's desktop and 
 - Loading blocks the global keybind until the interface is ready.
 - Loading-owned tweens, render connections, and temporary instances are cleaned with the window lifecycle.
 - Notification timeout connections are disconnected as soon as a toast is dismissed.
+
+</details>
 
 <details>
 <summary><strong>v2.0.1</strong></summary>
@@ -128,7 +151,7 @@ A polished Roblox UI library written in Luau, inspired by Spotify's desktop and 
 ## Quick Start
 
 ```lua
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/SpotifyUILibrary.lua"))()
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/Source.lua"))()
 
 local Window = Library:CreateWindow({
     Title = "My Menu",
@@ -159,11 +182,14 @@ local SettingsTab = Window:CreateTab({
 ## Complete example
 
 ```lua
-local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/SpotifyUILibrary.lua"))()
+-- Spotify UI Library Example
+
+local Library =
+    loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/Source.lua"))()
 
 local Window = Library:CreateWindow({
-    Title = "My Menu",
-    Subtitle = "Spotify UI Library",
+    Title = "Spotify UI Example",
+    Subtitle = "Modern Roblox interface",
     Size = Vector2.new(940, 590),
     Scale = 1,
     AutoScale = true,
@@ -174,10 +200,13 @@ local Window = Library:CreateWindow({
     ShowNowPlaying = true,
     ShowSessionTimer = true,
     SessionTimerDuration = 3600,
+
     ShowLoading = true,
     LoadingTitle = "Spotify UI",
     LoadingSubtitle = "By @spectronal",
-    LoadingDuration = 1.8,
+    LoadingText = "Preparing your interface",
+    LoadingDuration = 5,
+    LoadingIcon = "loader-circle",
 })
 
 local Home = Window:CreateTab({
@@ -188,23 +217,53 @@ local Home = Window:CreateTab({
 local General = Home:CreateSection("General")
 
 General:CreateButton({
-    Text = "Notify me",
-    Description = "Displays a toast notification.",
+    Text = "Show success notification",
+    Description = "Displays the redesigned notification toast.",
     Callback = function()
         Window:Notify({
             Type = "Success",
-            Title = "Done",
-            Content = "The action completed successfully.",
+            Title = "Everything is ready",
+            Content = "The interface finished loading successfully.",
+            Duration = 4.5,
+        })
+    end,
+})
+
+General:CreateButton({
+    Text = "Show notification action",
+    Description = "Displays a warning with an action button.",
+    Callback = function()
+        Window:Notify({
+            Type = "Warning",
+            Title = "Pending changes",
+            Content = "Apply the new graphics settings now?",
+            ActionText = "Apply",
+            ActionCallback = function()
+                print("Settings applied")
+            end,
+        })
+    end,
+})
+
+General:CreateButton({
+    Text = "Show error notification",
+    Description = "Displays an error with an action button.",
+    Callback = function()
+        Window:Notify({
+            Type = "Error",
+            Title = "Something went wrong",
+            Content = "An error occurred while applying the settings.",
             Duration = 4.5,
         })
     end,
 })
 
 General:CreateToggle({
-    Text = "Enabled",
+    Text = "Music enabled",
+    Description = "Enables or disables game music.",
     Default = true,
     Callback = function(enabled)
-        print(enabled)
+        print("Music enabled:", enabled)
     end,
 })
 
@@ -213,14 +272,37 @@ General:CreateSlider({
     Min = 0,
     Max = 100,
     Default = 70,
+    Increment = 1,
     Suffix = "%",
+    Callback = function(value)
+        print("Volume:", value)
+    end,
 })
 
 General:CreateDropdown({
-    Text = "Effects",
-    Options = { "Bloom", "Shadows", "Particles" },
+    Text = "Visual effects",
+    Options = { "Bloom", "Shadows", "Particles", "Reflections" },
     Multi = true,
     Default = { "Bloom", "Shadows" },
+    Callback = function(selected)
+        print(table.concat(selected, ", "))
+    end,
+})
+
+local About = Window:CreateTab({
+    Name = "About",
+    Icon = "info",
+})
+
+About:CreateParagraph({
+    Title = "Spotify UI Library",
+    Content = "A responsive Roblox UI library with Lucide icons, native search, loading animation, notifications, Settings panel, and mini player.",
+})
+
+About:CreateLabel({
+    Text = "Version " .. Library.Version,
+    Bold = true,
+    Color = Library.Theme.AccentHover,
 })
 ```
 
@@ -250,6 +332,9 @@ General:CreateDropdown({
 | `LoadingText` | `string` | `Preparing interface` | Initial loading status. |
 | `LoadingDuration` | `number` | `1.8` | Approximate automatic loading animation duration. |
 | `LoadingIcon` | `string` | `loader-circle` | Lucide icon used by the loading animation. |
+| `LoadingBackdropTransparency` | `number` | `1` | Full-screen loading backdrop transparency. `1` keeps the game fully visible. |
+| `LoadingBackdropColor` | `Color3` | `Color3.fromRGB(8, 8, 8)` | Color used only when the loading backdrop is visible. |
+| `LoadingBlockInput` | `boolean` | `true` | Captures input while the loading card is active. |
 | `LoadingColor` | `Color3` | Theme accent | Loading-screen accent color. |
 | `LoadingStages` | `table` | Built-in stages | Custom `{ Progress, Text }` loading stages. |
 | `LoadingCallback` | `function` | `nil` | Runs after the loading screen finishes. |
@@ -446,7 +531,7 @@ Window:SetSessionTimerVisible(false)
 
 ## Loading screen
 
-The loading screen is enabled by default and runs without blocking the rest of your LocalScript. Tabs and components can be created normally while the loading animation is visible.
+The loading screen is enabled by default and runs without blocking the rest of your LocalScript. Tabs and components can be created normally while the loading animation is visible. The full-screen holder is transparent by default, so the game remains visible behind the centered card.
 
 ```lua
 local Window = Library:CreateWindow({
@@ -457,6 +542,8 @@ local Window = Library:CreateWindow({
     LoadingText = "Preparing interface",
     LoadingDuration = 1.8,
     LoadingIcon = "loader-circle",
+    LoadingBackdropTransparency = 1,
+    LoadingBlockInput = true,
     LoadingStages = {
         { Progress = 0.25, Text = "Loading assets" },
         { Progress = 0.6, Text = "Building interface" },
@@ -481,7 +568,7 @@ Loading:SetProgress(0.9)
 Loading:Finish()
 ```
 
-Set `ShowLoading = false` to reveal the window immediately.
+Set `ShowLoading = false` to reveal the window immediately. Set `LoadingBackdropTransparency` below `1` only when you intentionally want a dimmed game background.
 
 ## Notifications
 
