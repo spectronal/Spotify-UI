@@ -4,47 +4,66 @@ local Library =
 	loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/Source.lua"))()
 
 local Window = Library:CreateWindow({
-	Title = "Meu Menu",
+	Title = "My Menu",
 	Subtitle = "Spotify UI Library",
 	Size = Vector2.new(940, 590),
-	-- CloseBehavior = "Destroy", -- O padrão é "Hide", permitindo reabrir pelo keybind.
-	-- GameName = "Nome personalizado",
-	-- GameCreator = "Criador personalizado",
+	Scale = 1,
+	AutoScale = true,
+	Animations = true,
+	AnimateOnStart = true,
+	Keybind = Enum.KeyCode.RightShift,
+	Minimized = false,
+
+	-- Lucide is loaded automatically from Library.LucideUrl.
+	-- Set LoadLucide = false to use the built-in fallback glyphs.
+	LoadLucide = true,
+
+	ShowSearch = true,
+	SearchPlaceholder = "What do you want to find?",
+	MaxSearchResults = 6,
+	ShowNowPlaying = true,
+	ShowSessionTimer = true,
+	SessionTimerDuration = 3600,
+	SessionTimerText = "Time open",
+	-- CloseBehavior = "Destroy", -- Default: "Hide".
+	-- GameName = "Custom experience name",
+	-- GameCreator = "Custom creator",
 	-- GameIcon = "rbxassetid://0000000000",
 })
 
 local HomeTab = Window:CreateTab({
 	Name = "Home",
-	Icon = "⌂",
+	Icon = "house",
 })
-local ControlsSection = HomeTab:CreateSection("Controles principais")
+
+local ControlsSection = HomeTab:CreateSection("Main controls")
 
 ControlsSection:CreateButton({
-	Text = "Abrir mini player",
-	Description = "Recolhe a janela para o popup compacto.",
+	Text = "Open mini player",
+	Description = "Collapses the window into the compact player.",
 	Callback = function()
 		Window:SetMinimized(true)
 	end,
 })
 
 ControlsSection:CreateButton({
-	Text = "Clique aqui",
-	Description = "Executa um callback simples.",
+	Text = "Click here",
+	Description = "Runs a simple callback.",
 	Callback = function()
 		Window:Notify({
-			Title = "Tudo certo",
-			Content = "O botão foi pressionado.",
+			Title = "All set",
+			Content = "The button was pressed.",
 			Duration = 3,
 		})
 	end,
 })
 
 ControlsSection:CreateToggle({
-	Text = "Música ativada",
-	Description = "Liga ou desliga a música do jogo.",
+	Text = "Music enabled",
+	Description = "Enables or disables the game's music.",
 	Default = true,
 	Callback = function(enabled)
-		print("Música:", enabled)
+		print("Music:", enabled)
 	end,
 })
 
@@ -61,55 +80,56 @@ ControlsSection:CreateSlider({
 })
 
 ControlsSection:CreateDropdown({
-	Text = "Qualidade",
-	Options = { "Baixa", "Média", "Alta", "Ultra" },
-	Default = "Alta",
+	Text = "Quality",
+	Options = { "Low", "Medium", "High", "Ultra" },
+	Default = "High",
 	Callback = function(value)
-		print("Qualidade:", value)
+		print("Quality:", value)
 	end,
 })
 
 ControlsSection:CreateDropdown({
-	Text = "Efeitos visuais",
-	Options = { "Bloom", "Sombras", "Partículas", "Reflexos" },
+	Text = "Visual effects",
+	Options = { "Bloom", "Shadows", "Particles", "Reflections" },
 	Multi = true,
-	Default = { "Bloom", "Sombras" },
+	Default = { "Bloom", "Shadows" },
 	Callback = function(selected)
-		print("Efeitos:", table.concat(selected, ", "))
+		print("Effects:", table.concat(selected, ", "))
 	end,
 })
 
 ControlsSection:CreateInput({
-	Text = "Nome da playlist",
-	Placeholder = "Minha playlist...",
+	Text = "Playlist name",
+	Placeholder = "My playlist...",
 	Callback = function(text, enterPressed)
-		print("Texto:", text, "Enter:", enterPressed)
+		print("Text:", text, "Enter:", enterPressed)
 	end,
 })
 
 local AboutTab = Window:CreateTab({
-	Name = "Sobre",
-	Icon = "i",
+	Name = "About",
+	Icon = "info",
 })
+
 AboutTab:CreateParagraph({
 	Title = "Spotify UI Library",
-	Content = "A janela se adapta ao ViewportSize. Use os controles de escala na barra inferior, Window:SetScale() ou pressione RightShift para ocultar e reabrir o menu.",
+	Content = "The window adapts to ViewportSize. Use the bottom scale controls, Window:SetScale(), or RightShift to hide and reopen the menu.",
 })
+
 AboutTab:CreateLabel({
-	Text = "Versão " .. Library.Version,
+	Text = "Version " .. Library.Version,
 	Bold = true,
 	Color = Library.Theme.AccentHover,
 })
 
--- A tab Settings e o Keybind Picker são criados automaticamente.
--- Ao clicar na tab, o conteúdo abre no painel lateral direito.
+-- Settings and its keybind picker are created automatically.
 local SettingsTab = Window:GetSettingsTab()
 SettingsTab:CreateLabel({
-	Text = "O atalho só é mantido durante a sessão atual.",
+	Text = "The shortcut is kept only for the current session.",
 	Color = Library.Theme.Subtext,
 })
 
--- APIs adicionais:
+-- Additional APIs:
 -- Window:FocusSearch()
 -- Window:SetSearchQuery("volume")
 -- Window:SetSearchVisible(false)
@@ -118,7 +138,7 @@ SettingsTab:CreateLabel({
 -- Window:ToggleMinimized()
 -- Window:ResetMiniPlayerPosition()
 -- Window:SetSettingsPanelVisible(true)
--- Window:SetGameInfo({ Name = "Novo nome", Creator = "Novo criador" })
+-- Window:SetGameInfo({ Name = "New name", Creator = "New creator" })
 -- Window:SetNowPlayingVisible(false)
 -- Window:SetSessionTimerVisible(false)
 -- Window:ResetSessionTimer()

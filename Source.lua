@@ -1,4 +1,4 @@
--- Spotify Library UI v1.9.0
+-- Source code Spotify UI Library 2.0.0
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8,7 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Library = {
-	Version = "1.9.0",
+	Version = "2.0.0",
 	_windows = {},
 	_windowCounter = 0,
 }
@@ -63,22 +63,222 @@ local SEARCH_BAR_HEIGHT = 38
 local SEARCH_RESULTS_MAX_HEIGHT = 250
 local DEFAULT_SEARCH_RESULTS = 6
 
+local LUCIDE_SOURCE_URL = "https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/Libs/Lucide.luau"
+
 local DEFAULT_TAB_ICONS = {
-	home = "⌂",
-	inicio = "⌂",
-	["início"] = "⌂",
-	main = "⌂",
-	sobre = "i",
-	about = "i",
-	player = "▶",
-	music = "♫",
-	musica = "♫",
-	settings = "⚙",
-	configuracoes = "⚙",
-	["configurações"] = "⚙",
+	home = "house",
+	main = "house",
+	about = "info",
+	player = "play",
+	music = "music-2",
+	settings = "settings",
 }
 
--- Maid simples para impedir vazamento de conexões, threads e objetos temporários.
+local ICON_ALIASES = {
+	close = "x",
+	clear = "x",
+	minimize = "minus",
+	expand = "maximize-2",
+	previous = "minus",
+	next = "plus",
+	search = "search",
+	button = "chevron-right",
+	dropdown = "chevron-down",
+	selected = "check",
+	game = "gamepad-2",
+}
+
+local ICON_FALLBACKS = {
+	["house"] = "⌂",
+	["info"] = "i",
+	["play"] = "▶",
+	["music-2"] = "♫",
+	["settings"] = "⚙",
+	["search"] = "⌕",
+	["x"] = "×",
+	["minus"] = "−",
+	["plus"] = "+",
+	["maximize-2"] = "↗",
+	["chevron-right"] = "›",
+	["chevron-down"] = "⌄",
+	["check"] = "✓",
+	["gamepad-2"] = "◇",
+}
+
+local IconProviderState = {
+	Provider = nil,
+	Attempted = false,
+	SourceUrl = LUCIDE_SOURCE_URL,
+}
+
+local function normalizeIconName(value)
+	local name = string.lower(tostring(value or ""))
+	name = string.gsub(name, "[%s_]", "-")
+	name = string.gsub(name, "%-+", "-")
+	return ICON_ALIASES[name] or name
+end
+
+local function toPascalCase(value)
+	local result = ""
+	for part in string.gmatch(value, "[^%-_ ]+") do
+		result ..= string.upper(string.sub(part, 1, 1)) .. string.sub(part, 2)
+	end
+	return result
+end
+
+local function loadLucideProvider(sourceUrl)
+	IconProviderState.Attempted = true
+	IconProviderState.SourceUrl = tostring(sourceUrl or LUCIDE_SOURCE_URL)
+
+	local ok, provider = pcall(function()
+		assert(type(loadstring) == "function", "loadstring is unavailable")
+		local source = game:HttpGet(IconProviderState.SourceUrl)
+		local chunk, compileError = loadstring(source)
+		assert(chunk, compileError or "Lucide source failed to compile")
+		return chunk()
+	end)
+
+	if ok and provider ~= nil then
+		IconProviderState.Provider = provider
+		return provider
+	end
+
+	warn("[SpotifyUI] Lucide could not be loaded; built-in icon fallbacks will be used:", provider)
+	IconProviderState.Provider = nil
+	return nil
+end
+
+local function getLucideProvider()
+	if not IconProviderState.Attempted then
+		loadLucideProvider(IconProviderState.SourceUrl)
+	end
+	return IconProviderState.Provider
+end
+
+local function normalizeIconData(value)
+	if type(value) == "string" then
+		return { Image = value }
+	elseif type(value) == "number" then
+		return { Image = "rbxassetid://" .. tostring(value) }
+	elseif type(value) ~= "table" then
+		return nil
+	end
+
+	local image = value.Image
+		or value.image
+		or value.Asset
+		or value.asset
+		or value.AssetId
+		or value.assetId
+		or value.Url
+		or value.URL
+		or value.Id
+		or value.ID
+		or value[1]
+	if type(image) == "number" then
+		image = "rbxassetid://" .. tostring(image)
+	end
+	if type(image) ~= "string" or image == "" then
+		return nil
+	end
+
+	return {
+		Image = image,
+		ImageRectOffset = value.ImageRectOffset
+			or value.imageRectOffset
+			or value.RectOffset
+			or value.rectOffset
+			or value.Offset
+			or value.offset
+			or value[2],
+		ImageRectSize = value.ImageRectSize
+			or value.imageRectSize
+			or value.RectSize
+			or value.rectSize
+			or value.Size
+			or value.size
+			or value[3],
+	}
+end
+
+local function resolveLucideIcon(iconName)
+	if
+		type(iconName) == "string"
+		and (
+			string.match(iconName, "^rbxasset")
+			or string.match(iconName, "^rbxthumb")
+			or string.match(iconName, "^https?://")
+		)
+	then
+		return { Image = iconName }, normalizeIconName(iconName)
+	end
+
+	local normalized = normalizeIconName(iconName)
+	local provider = getLucideProvider()
+	if provider == nil then
+		return nil, normalized
+	end
+
+	local candidates = {
+		normalized,
+		string.gsub(normalized, "-", "_"),
+		toPascalCase(normalized),
+		string.upper(string.sub(normalized, 1, 1)) .. string.sub(normalized, 2),
+	}
+
+	local function readContainer(container)
+		if type(container) ~= "table" then
+			return nil
+		end
+		for _, candidate in ipairs(candidates) do
+			local data = normalizeIconData(container[candidate])
+			if data then
+				return data
+			end
+		end
+		return nil
+	end
+
+	if type(provider) == "table" then
+		local direct = readContainer(provider)
+			or readContainer(provider.Icons)
+			or readContainer(provider.icons)
+			or readContainer(provider.Data)
+			or readContainer(provider.data)
+		if direct then
+			return direct, normalized
+		end
+
+		for _, methodName in ipairs({ "GetIcon", "getIcon", "Get", "get", "Resolve", "resolve" }) do
+			local method = provider[methodName]
+			if type(method) == "function" then
+				for _, candidate in ipairs(candidates) do
+					local ok, result = pcall(method, provider, candidate)
+					local data = ok and normalizeIconData(result) or nil
+					if not data then
+						ok, result = pcall(method, candidate)
+						data = ok and normalizeIconData(result) or nil
+					end
+					if data then
+						return data, normalized
+					end
+				end
+			end
+		end
+	elseif type(provider) == "function" then
+		for _, candidate in ipairs(candidates) do
+			local ok, result = pcall(provider, candidate)
+			local data = ok and normalizeIconData(result) or nil
+			if data then
+				return data, normalized
+			end
+		end
+	end
+
+	return nil, normalized
+end
+
+-- Lightweight cleanup container for connections, tweens, threads, and temporary instances.
 local Maid = {}
 Maid.__index = Maid
 
@@ -156,7 +356,7 @@ function Maid:Cleanup()
 	for _, taskItem in pairs(tasks) do
 		local ok, err = pcall(cleanupTask, taskItem)
 		if not ok then
-			warn("[SpotifyUI] Erro durante cleanup:", err)
+			warn("[SpotifyUI] Cleanup error:", err)
 		end
 	end
 end
@@ -186,7 +386,7 @@ local function addCorner(parent, radius)
 end
 
 local function addStroke(parent, color, transparency, _thickness)
-	-- Todos os contornos da biblioteca usam 2 px para manter consistência visual.
+	-- Every library stroke uses a 2 px thickness for visual consistency.
 	return create("UIStroke", {
 		ApplyStrokeMode = Enum.ApplyStrokeMode.Border,
 		Color = color or Theme.Stroke,
@@ -251,7 +451,7 @@ local function safeCallback(callback, ...)
 		end, debug.traceback)
 
 		if not ok then
-			warn("[SpotifyUI] Erro no callback:\n" .. tostring(err))
+			warn("[SpotifyUI] Callback error:\n" .. tostring(err))
 		end
 	end)
 end
@@ -298,7 +498,7 @@ end
 
 local function getKeyCodeDisplayName(keyCode)
 	if keyCode == nil or keyCode == Enum.KeyCode.Unknown then
-		return "Nenhuma tecla"
+		return "No key"
 	end
 
 	local ok, displayName = pcall(function()
@@ -326,20 +526,10 @@ local function normalizeTabConfig(nameOrConfig, iconOverride)
 	config.Name = tostring(config.Name or config.Text or "Tab")
 	if config.Icon == nil then
 		local normalizedName = string.lower(config.Name)
-		config.Icon = DEFAULT_TAB_ICONS[normalizedName] or string.upper(string.sub(config.Name, 1, 1))
+		config.Icon = DEFAULT_TAB_ICONS[normalizedName] or "circle"
 	end
 
 	return config
-end
-
-local function isImageIcon(icon)
-	if type(icon) ~= "string" then
-		return false
-	end
-
-	return string.match(icon, "^rbxasset") ~= nil
-		or string.match(icon, "^rbxthumb") ~= nil
-		or string.match(icon, "^https?://") ~= nil
 end
 
 local function attachComponentLifecycle(api, maid, root, beforeDestroy)
@@ -359,7 +549,7 @@ local function attachComponentLifecycle(api, maid, root, beforeDestroy)
 		if type(beforeDestroy) == "function" then
 			local ok, err = pcall(beforeDestroy)
 			if not ok then
-				warn("[SpotifyUI] Erro ao destruir componente:", err)
+				warn("[SpotifyUI] Component destruction error:", err)
 			end
 		end
 
@@ -460,6 +650,87 @@ local function makeTextButton(parent, properties)
 	return create("TextButton", properties)
 end
 
+local function makeIcon(parent, properties)
+	properties = properties or {}
+	local iconName = properties.Icon or properties.Name or "circle"
+	local iconData, normalizedName = resolveLucideIcon(iconName)
+	local color = properties.Color or properties.ImageColor3 or properties.TextColor3 or Theme.Text
+	local position = properties.Position or UDim2.fromOffset(0, 0)
+	local size = properties.Size or UDim2.fromOffset(18, 18)
+	local zIndex = properties.ZIndex or ((parent and parent.ZIndex or 1) + 1)
+	local rotation = properties.Rotation or 0
+	local visible = properties.Visible ~= false
+
+	if iconData then
+		local icon = create("ImageLabel", {
+			Name = properties.InstanceName or "Icon",
+			Position = position,
+			Size = size,
+			AnchorPoint = properties.AnchorPoint or Vector2.zero,
+			BackgroundTransparency = 1,
+			BorderSizePixel = 0,
+			Image = iconData.Image,
+			ImageColor3 = color,
+			ImageTransparency = properties.Transparency or properties.ImageTransparency or 0,
+			ScaleType = Enum.ScaleType.Fit,
+			Rotation = rotation,
+			Visible = visible,
+			ZIndex = zIndex,
+			Parent = parent,
+		})
+		if typeof(iconData.ImageRectOffset) == "Vector2" then
+			icon.ImageRectOffset = iconData.ImageRectOffset
+		end
+		if typeof(iconData.ImageRectSize) == "Vector2" then
+			icon.ImageRectSize = iconData.ImageRectSize
+		end
+		icon:SetAttribute("LucideIcon", normalizedName)
+		return icon, true
+	end
+
+	local fallback = properties.Fallback or ICON_FALLBACKS[normalizedName] or "•"
+	local icon = makeTextLabel(parent, {
+		Name = properties.InstanceName or "Icon",
+		Position = position,
+		Size = size,
+		AnchorPoint = properties.AnchorPoint or Vector2.zero,
+		Font = Enum.Font.GothamBold,
+		Text = fallback,
+		TextColor3 = color,
+		TextTransparency = properties.Transparency or properties.TextTransparency or 0,
+		TextSize = properties.TextSize or math.max(math.floor(size.Y.Offset * 0.72), 12),
+		Rotation = rotation,
+		Visible = visible,
+		ZIndex = zIndex,
+	})
+	icon:SetAttribute("LucideIcon", normalizedName)
+	return icon, false
+end
+
+local function setIconColor(icon, color, tweenInfo)
+	if not icon then
+		return nil
+	end
+	local property = icon:IsA("ImageLabel") and "ImageColor3" or "TextColor3"
+	if tweenInfo then
+		return playTween(icon, tweenInfo, { [property] = color })
+	end
+	icon[property] = color
+	return nil
+end
+
+local function setIconTransparency(icon, transparency, tweenInfo)
+	if not icon then
+		return nil
+	end
+	local property = icon:IsA("ImageLabel") and "ImageTransparency" or "TextTransparency"
+	if tweenInfo then
+		return playTween(icon, tweenInfo, { [property] = transparency })
+	end
+	icon[property] = transparency
+	return nil
+end
+
 local function formatNumber(value, increment)
 	local decimals = 0
 	local incrementText = tostring(increment)
@@ -476,7 +747,7 @@ local function getPlayerGui(parentOverride)
 	end
 
 	local localPlayer = Players.LocalPlayer
-	assert(localPlayer, "[SpotifyUI] A biblioteca deve ser criada em um LocalScript.")
+	assert(localPlayer, "[SpotifyUI] The library must be created from a LocalScript.")
 	return localPlayer:WaitForChild("PlayerGui")
 end
 
@@ -519,6 +790,23 @@ local function createBaseRow(section, height)
 	return row, stroke, scale
 end
 
+local function registerComponentSearch(section, maid, root, metadata)
+	local controller = section._window._searchController
+	if not controller then
+		return
+	end
+
+	local unregister = controller:Register({
+		Tab = section._tab,
+		Section = section,
+		Root = root,
+		Title = metadata.Title,
+		Description = metadata.Description,
+		Keywords = metadata.Keywords,
+	})
+	maid:Give(unregister)
+end
+
 local SectionMethods = {}
 SectionMethods.__index = SectionMethods
 
@@ -554,7 +842,10 @@ function SectionMethods:Destroy()
 end
 
 function SectionMethods:CreateButton(config)
-	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
+	assert(
+		not self._destroyed and not self._window._destroyed,
+		"[SpotifyUI] The section or window has already been destroyed."
+	)
 	config = normalizeConfig(config, "Text")
 	local maid = createComponentMaid(self._window, self)
 	local row, stroke, rowScale = createBaseRow(self, config.Description and 66 or 52)
@@ -591,13 +882,11 @@ function SectionMethods:CreateButton(config)
 		})
 	end
 
-	local arrow = makeTextLabel(button, {
-		Position = UDim2.new(1, -43, 0.5, -11),
-		Size = UDim2.fromOffset(22, 22),
-		Font = Enum.Font.GothamBold,
-		Text = "›",
-		TextColor3 = Theme.Subtext,
-		TextSize = 20,
+	local arrow = makeIcon(button, {
+		Icon = "chevron-right",
+		Position = UDim2.new(1, -39, 0.5, -9),
+		Size = UDim2.fromOffset(18, 18),
+		Color = Theme.Subtext,
 		ZIndex = 10,
 	})
 
@@ -605,15 +894,15 @@ function SectionMethods:CreateButton(config)
 
 	maid:Give(button.MouseEnter:Connect(function()
 		playTween(arrow, FAST_TWEEN_INFO, {
-			Position = UDim2.new(1, -38, 0.5, -11),
-			TextColor3 = Theme.Text,
+			Position = UDim2.new(1, -35, 0.5, -9),
 		})
+		setIconColor(arrow, Theme.Text, FAST_TWEEN_INFO)
 	end))
 	maid:Give(button.MouseLeave:Connect(function()
 		playTween(arrow, FAST_TWEEN_INFO, {
-			Position = UDim2.new(1, -43, 0.5, -11),
-			TextColor3 = Theme.Subtext,
+			Position = UDim2.new(1, -39, 0.5, -9),
 		})
+		setIconColor(arrow, Theme.Subtext, FAST_TWEEN_INFO)
 	end))
 
 	maid:Give(button.MouseButton1Click:Connect(function()
@@ -650,11 +939,21 @@ function SectionMethods:CreateButton(config)
 	function api:SetVisible(visible)
 		row.Visible = visible == true
 	end
+	registerComponentSearch(self, maid, row, {
+		Title = function()
+			return title.Text
+		end,
+		Description = config.Description,
+		Keywords = config.SearchKeywords,
+	})
 	return attachComponentLifecycle(api, maid, row)
 end
 
 function SectionMethods:CreateToggle(config)
-	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
+	assert(
+		not self._destroyed and not self._window._destroyed,
+		"[SpotifyUI] The section or window has already been destroyed."
+	)
 	config = normalizeConfig(config, "Text")
 	local maid = createComponentMaid(self._window, self)
 	local row, stroke, rowScale = createBaseRow(self, config.Description and 66 or 54)
@@ -780,11 +1079,24 @@ function SectionMethods:CreateToggle(config)
 	function api:SetVisible(visible)
 		row.Visible = visible == true
 	end
+	registerComponentSearch(self, maid, row, {
+		Title = config.Text or "Toggle",
+		Description = config.Description,
+		Keywords = function()
+			return {
+				config.SearchKeywords,
+				value and "enabled on true" or "disabled off false",
+			}
+		end,
+	})
 	return attachComponentLifecycle(api, maid, row)
 end
 
 function SectionMethods:CreateSlider(config)
-	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
+	assert(
+		not self._destroyed and not self._window._destroyed,
+		"[SpotifyUI] The section or window has already been destroyed."
+	)
 	config = normalizeConfig(config, "Text")
 	local maid = createComponentMaid(self._window, self)
 	local row, stroke, rowScale = createBaseRow(self, 78)
@@ -968,6 +1280,18 @@ function SectionMethods:CreateSlider(config)
 	function api:SetVisible(visible)
 		row.Visible = visible == true
 	end
+	registerComponentSearch(self, maid, row, {
+		Title = config.Text or "Slider",
+		Description = config.Description,
+		Keywords = function()
+			return {
+				config.SearchKeywords,
+				formatNumber(value, increment) .. (config.Suffix or ""),
+				minimum,
+				maximum,
+			}
+		end,
+	})
 	return attachComponentLifecycle(api, maid, row, function()
 		dragging = false
 		dragInput = nil
@@ -975,7 +1299,10 @@ function SectionMethods:CreateSlider(config)
 end
 
 function SectionMethods:CreateDropdown(config)
-	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
+	assert(
+		not self._destroyed and not self._window._destroyed,
+		"[SpotifyUI] The section or window has already been destroyed."
+	)
 	config = normalizeConfig(config, "Text")
 	local maid = createComponentMaid(self._window, self)
 	local optionsMaid = Maid.new()
@@ -1059,13 +1386,11 @@ function SectionMethods:CreateDropdown(config)
 		ZIndex = 12,
 	})
 
-	local arrow = makeTextLabel(selector, {
-		Position = UDim2.new(1, -32, 0, 0),
-		Size = UDim2.fromOffset(24, 38),
-		Font = Enum.Font.GothamBold,
-		Text = "⌄",
-		TextColor3 = Theme.Subtext,
-		TextSize = 13,
+	local arrow = makeIcon(selector, {
+		Icon = "chevron-down",
+		Position = UDim2.new(1, -28, 0.5, -8),
+		Size = UDim2.fromOffset(16, 16),
+		Color = Theme.Subtext,
 		ZIndex = 12,
 	})
 
@@ -1096,7 +1421,7 @@ function SectionMethods:CreateDropdown(config)
 		if multi then
 			local selected = getMultiValues()
 			if #selected == 0 then
-				selectedLabel.Text = config.Placeholder or "Selecionar"
+				selectedLabel.Text = config.Placeholder or "Select"
 				selectedLabel.TextColor3 = Theme.Subtext
 			else
 				local labels = {}
@@ -1107,7 +1432,7 @@ function SectionMethods:CreateDropdown(config)
 				selectedLabel.TextColor3 = Theme.Text
 			end
 		else
-			selectedLabel.Text = value ~= nil and tostring(value) or (config.Placeholder or "Selecionar")
+			selectedLabel.Text = value ~= nil and tostring(value) or (config.Placeholder or "Select")
 			selectedLabel.TextColor3 = value ~= nil and Theme.Text or Theme.Subtext
 		end
 	end
@@ -1127,8 +1452,8 @@ function SectionMethods:CreateDropdown(config)
 		playTween(optionsHolder, TWEEN_INFO, { Size = UDim2.new(1, -24, 0, holderHeight) })
 		playTween(arrow, TWEEN_INFO, {
 			Rotation = opened and 180 or 0,
-			TextColor3 = opened and Theme.Text or Theme.Subtext,
 		})
+		setIconColor(arrow, opened and Theme.Text or Theme.Subtext, TWEEN_INFO)
 		playTween(selectorStroke, FAST_TWEEN_INFO, {
 			Color = opened and Theme.Accent or Theme.Stroke,
 			Transparency = opened and 0.24 or 0.68,
@@ -1172,7 +1497,7 @@ function SectionMethods:CreateDropdown(config)
 			makeTextLabel(optionsHolder, {
 				Name = "Empty",
 				Size = UDim2.new(1, 0, 0, 36),
-				Text = "Nenhuma opção",
+				Text = "No options",
 				TextColor3 = Theme.Subtext,
 				TextSize = 12,
 				LayoutOrder = 1,
@@ -1217,14 +1542,12 @@ function SectionMethods:CreateDropdown(config)
 				)
 
 				if selected then
-					makeTextLabel(optionButton, {
+					makeIcon(optionButton, {
+						Icon = "check",
 						AnchorPoint = Vector2.new(1, 0.5),
-						Position = UDim2.new(1, -11, 0.5, 0),
-						Size = UDim2.fromOffset(18, 18),
-						Font = Enum.Font.GothamBold,
-						Text = "✓",
-						TextColor3 = Theme.AccentHover,
-						TextSize = 13,
+						Position = UDim2.new(1, -10, 0.5, 0),
+						Size = UDim2.fromOffset(16, 16),
+						Color = Theme.AccentHover,
 						ZIndex = 16,
 					})
 				end
@@ -1354,11 +1677,26 @@ function SectionMethods:CreateDropdown(config)
 	function api:SetVisible(visible)
 		row.Visible = visible == true
 	end
+	registerComponentSearch(self, maid, row, {
+		Title = config.Text or "Dropdown",
+		Description = config.Description,
+		Keywords = function()
+			return {
+				config.SearchKeywords,
+				options,
+				selectedLabel.Text,
+				multi and "multiple multi select" or "single select",
+			}
+		end,
+	})
 	return attachComponentLifecycle(api, maid, row)
 end
 
 function SectionMethods:CreateInput(config)
-	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
+	assert(
+		not self._destroyed and not self._window._destroyed,
+		"[SpotifyUI] The section or window has already been destroyed."
+	)
 	config = normalizeConfig(config, "Text")
 	local maid = createComponentMaid(self._window, self)
 	local row, rowStroke, rowScale = createBaseRow(self, 68)
@@ -1382,7 +1720,7 @@ function SectionMethods:CreateInput(config)
 		ClearTextOnFocus = config.ClearTextOnFocus == true,
 		Font = Enum.Font.Gotham,
 		PlaceholderColor3 = Theme.Subtext,
-		PlaceholderText = config.Placeholder or "Digite aqui...",
+		PlaceholderText = config.Placeholder or "Type here...",
 		Text = tostring(config.Default or ""),
 		TextColor3 = Theme.Text,
 		TextSize = 13,
@@ -1461,11 +1799,25 @@ function SectionMethods:CreateInput(config)
 	function api:SetVisible(visible)
 		row.Visible = visible == true
 	end
+	registerComponentSearch(self, maid, row, {
+		Title = config.Text or "Input",
+		Description = config.Description,
+		Keywords = function()
+			return {
+				config.SearchKeywords,
+				config.Placeholder,
+				textBox.Text,
+			}
+		end,
+	})
 	return attachComponentLifecycle(api, maid, row)
 end
 
 function SectionMethods:CreateLabel(config)
-	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
+	assert(
+		not self._destroyed and not self._window._destroyed,
+		"[SpotifyUI] The section or window has already been destroyed."
+	)
 	config = normalizeConfig(config, "Text")
 	local maid = createComponentMaid(self._window, self)
 	local row = create("Frame", {
@@ -1510,11 +1862,20 @@ function SectionMethods:CreateLabel(config)
 	function api:SetVisible(visible)
 		row.Visible = visible == true
 	end
+	registerComponentSearch(self, maid, row, {
+		Title = function()
+			return label.Text
+		end,
+		Keywords = config.SearchKeywords,
+	})
 	return attachComponentLifecycle(api, maid, row)
 end
 
 function SectionMethods:CreateParagraph(config)
-	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
+	assert(
+		not self._destroyed and not self._window._destroyed,
+		"[SpotifyUI] The section or window has already been destroyed."
+	)
 	config = normalizeConfig(config, "Content")
 	local maid = createComponentMaid(self._window, self)
 	local row = create("Frame", {
@@ -1580,11 +1941,23 @@ function SectionMethods:CreateParagraph(config)
 	function api:SetVisible(visible)
 		row.Visible = visible == true
 	end
+	registerComponentSearch(self, maid, row, {
+		Title = function()
+			return title and title.Text or content.Text
+		end,
+		Description = function()
+			return title and content.Text or nil
+		end,
+		Keywords = config.SearchKeywords,
+	})
 	return attachComponentLifecycle(api, maid, row)
 end
 
 function SectionMethods:CreateKeybindPicker(config)
-	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A section ou janela já foi destruída.")
+	assert(
+		not self._destroyed and not self._window._destroyed,
+		"[SpotifyUI] The section or window has already been destroyed."
+	)
 	config = normalizeConfig(config, "Text")
 	local window = self._window
 	local maid = createComponentMaid(window, self)
@@ -1606,7 +1979,7 @@ function SectionMethods:CreateKeybindPicker(config)
 		Position = UDim2.fromOffset(16, config.Description and 9 or 0),
 		Size = config.Description and UDim2.new(0.56, -16, 0, 22) or UDim2.new(0.56, -16, 1, 0),
 		Font = Enum.Font.GothamMedium,
-		Text = config.Text or "Atalho do menu",
+		Text = config.Text or "Menu shortcut",
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextSize = 14,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -1797,6 +2170,17 @@ function SectionMethods:CreateKeybindPicker(config)
 		render()
 	end
 
+	registerComponentSearch(self, maid, row, {
+		Title = config.Text or "Menu shortcut",
+		Description = config.Description,
+		Keywords = function()
+			return {
+				config.SearchKeywords,
+				getKeyCodeDisplayName(value),
+				"keybind shortcut hotkey",
+			}
+		end,
+	})
 	return attachComponentLifecycle(api, maid, row, stopListening)
 end
 
@@ -1856,7 +2240,10 @@ function TabMethods:Destroy()
 end
 
 function TabMethods:CreateSection(name)
-	assert(not self._destroyed and not self._window._destroyed, "[SpotifyUI] A tab ou janela já foi destruída.")
+	assert(
+		not self._destroyed and not self._window._destroyed,
+		"[SpotifyUI] The tab or window has already been destroyed."
+	)
 	local sectionFrame = create("Frame", {
 		Name = "Section",
 		Size = UDim2.new(1, 0, 0, 0),
@@ -1972,37 +2359,178 @@ local function normalizeSearchText(value)
 	return string.gsub(text, "^%s*(.-)%s*$", "%1")
 end
 
-local function collectSearchTexts(root)
-	local texts = {}
-	local seen = {}
-	local ignored = {
-		["×"] = true,
-		["−"] = true,
-		["+"] = true,
-		["⌄"] = true,
-		["›"] = true,
-		["✓"] = true,
-		["↗"] = true,
-	}
-
-	for _, descendant in ipairs(root:GetDescendants()) do
-		if descendant:IsA("TextLabel") or descendant:IsA("TextButton") or descendant:IsA("TextBox") then
-			local text = tostring(descendant.Text or "")
-			local normalized = normalizeSearchText(text)
-			if normalized ~= "" and not ignored[text] and not seen[normalized] then
-				seen[normalized] = true
-				table.insert(texts, text)
+local function resolveSearchMetadata(value)
+	if type(value) == "function" then
+		local ok, result = pcall(value)
+		if not ok then
+			return ""
+		end
+		return resolveSearchMetadata(result)
+	elseif type(value) == "table" then
+		local parts = {}
+		for _, item in pairs(value) do
+			local resolved = resolveSearchMetadata(item)
+			if resolved ~= "" then
+				table.insert(parts, resolved)
 			end
 		end
+		return table.concat(parts, " ")
+	elseif value == nil then
+		return ""
 	end
-
-	return texts
+	return tostring(value)
 end
 
 local WindowMethods = {}
 WindowMethods.__index = WindowMethods
 
-function WindowMethods:_clearSearchResults()
+local SearchController = {}
+SearchController.__index = SearchController
+
+function SearchController.new(window, references, config)
+	local self = setmetatable({
+		_window = window,
+		_maid = Maid.new(),
+		_container = references.Container,
+		_stroke = references.Stroke,
+		_icon = references.Icon,
+		_input = references.Input,
+		_clearButton = references.ClearButton,
+		_clearIcon = references.ClearIcon,
+		_enabled = config.ShowSearch ~= false,
+		_query = "",
+		_updatingInput = false,
+		_entries = {},
+		_entryCounter = 0,
+	}, SearchController)
+
+	self._container.Visible = self._enabled
+	window._searchEnabled = self._enabled
+
+	self._maid:Give(self._input:GetPropertyChangedSignal("Text"):Connect(function()
+		if self._updatingInput then
+			return
+		end
+		self._query = self._input.Text
+		window:_renderSearchResultsInternal(self._query)
+	end))
+
+	self._maid:Give(self._input.Focused:Connect(function()
+		playTween(self._container, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.InputHover })
+		playTween(self._stroke, FAST_TWEEN_INFO, {
+			Color = Theme.Text,
+			Transparency = 0.22,
+		})
+		setIconColor(self._icon, Theme.Text, FAST_TWEEN_INFO)
+		window:_renderSearchResultsInternal(self._query)
+	end))
+
+	self._maid:Give(self._input.FocusLost:Connect(function(enterPressed)
+		playTween(self._container, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.Input })
+		playTween(self._stroke, FAST_TWEEN_INFO, {
+			Color = Theme.Stroke,
+			Transparency = 0.62,
+		})
+		setIconColor(self._icon, Theme.Subtext, FAST_TWEEN_INFO)
+		if enterPressed and window._searchResultCache and window._searchResultCache[1] then
+			window:_activateSearchResult(window._searchResultCache[1])
+		end
+	end))
+
+	self._maid:Give(self._clearButton.MouseButton1Click:Connect(function()
+		self:SetQuery("")
+		self:Focus()
+	end))
+	self._maid:Give(self._clearButton.MouseEnter:Connect(function()
+		setIconColor(self._clearIcon, Theme.Text, FAST_TWEEN_INFO)
+	end))
+	self._maid:Give(self._clearButton.MouseLeave:Connect(function()
+		setIconColor(self._clearIcon, Theme.Subtext, FAST_TWEEN_INFO)
+	end))
+
+	return self
+end
+
+function SearchController:Register(entry)
+	assert(type(entry) == "table", "SearchController:Register expects a table.")
+	self._entryCounter += 1
+	local entryId = self._entryCounter
+	entry.Id = entryId
+	self._entries[entryId] = entry
+
+	local registered = true
+	return function()
+		if registered then
+			registered = false
+			self._entries[entryId] = nil
+		end
+	end
+end
+
+function SearchController:GetEntries()
+	return self._entries
+end
+
+function SearchController:SetQuery(query)
+	if not self._window or self._window._destroyed then
+		return
+	end
+	local nextQuery = tostring(query or "")
+	self._query = nextQuery
+	if self._input.Text ~= nextQuery then
+		self._updatingInput = true
+		self._input.Text = nextQuery
+		self._updatingInput = false
+	end
+	self._window:_renderSearchResultsInternal(nextQuery)
+end
+
+function SearchController:GetQuery()
+	return self._query
+end
+
+function SearchController:Focus()
+	if self._enabled and self._input then
+		self._input:CaptureFocus()
+	end
+end
+
+function SearchController:Close()
+	if self._input then
+		self._input:ReleaseFocus()
+	end
+	if self._window and not self._window._destroyed then
+		self._window:_clearSearchResultsInternal()
+	end
+end
+
+function SearchController:SetVisible(visible)
+	self._enabled = visible == true
+	self._window._searchEnabled = self._enabled
+	self._container.Visible = self._enabled
+	if not self._enabled then
+		self:Close()
+	end
+end
+
+function SearchController:Resize(width, offset)
+	self._container.Position = UDim2.new(0.5, offset, 0.5, 0)
+	self._container.Size = UDim2.fromOffset(width, SEARCH_BAR_HEIGHT)
+	local results = self._window._searchResults
+	results.Position = UDim2.new(0.5, offset, 0, TOPBAR_HEIGHT - 2)
+	results.Size = UDim2.new(0, width, 0, results.Visible and results.Size.Y.Offset or 0)
+end
+
+function SearchController:Destroy()
+	if self._maid then
+		self._maid:Cleanup()
+	end
+	table.clear(self._entries)
+	self._maid = nil
+	self._window = nil
+end
+
+function WindowMethods:_clearSearchResultsInternal()
 	if self._searchResultsMaid then
 		self._searchResultsMaid:Cleanup()
 	end
@@ -2035,62 +2563,57 @@ function WindowMethods:_collectSearchResults(query)
 	end
 
 	local results = {}
-	for _, tab in ipairs(self._tabs) do
-		if not tab._destroyed then
-			for _, section in ipairs(tab._sections) do
-				if not section._destroyed then
-					for _, root in ipairs(section._content:GetChildren()) do
-						if
-							root:IsA("GuiObject")
-							and root ~= section._frame:FindFirstChild("SectionTitle")
-							and root.Name ~= "SectionTitle"
-						then
-							local texts = collectSearchTexts(root)
-							if #texts > 0 then
-								local sectionName = section._name or ""
-								local haystack = normalizeSearchText(
-									table.concat(texts, " ") .. " " .. tab._name .. " " .. sectionName
-								)
-								local matches = true
-								for _, token in ipairs(queryTokens) do
-									if not string.find(haystack, token, 1, true) then
-										matches = false
-										break
-									end
-								end
+	local entries = self._searchController and self._searchController:GetEntries() or {}
+	for _, entry in pairs(entries) do
+		local tab = entry.Tab
+		local section = entry.Section
+		local root = entry.Root
+		if tab and section and root and root.Parent and not tab._destroyed and not section._destroyed then
+			local title = resolveSearchMetadata(entry.Title)
+			local description = resolveSearchMetadata(entry.Description)
+			local keywords = resolveSearchMetadata(entry.Keywords)
+			local sectionName = section._name or ""
+			local haystack = normalizeSearchText(table.concat({
+				title,
+				description,
+				keywords,
+				tab._name or "",
+				sectionName,
+			}, " "))
 
-								if matches then
-									local title = texts[1]
-									local normalizedTitle = normalizeSearchText(title)
-									local score = 20
-									if normalizedTitle == normalizedQuery then
-										score = 120
-									elseif string.sub(normalizedTitle, 1, #normalizedQuery) == normalizedQuery then
-										score = 90
-									elseif string.find(normalizedTitle, normalizedQuery, 1, true) then
-										score = 70
-									elseif string.find(normalizeSearchText(tab._name), normalizedQuery, 1, true) then
-										score = 50
-									elseif
-										sectionName ~= ""
-										and string.find(normalizeSearchText(sectionName), normalizedQuery, 1, true)
-									then
-										score = 42
-									end
-
-									table.insert(results, {
-										Title = title,
-										Description = texts[2],
-										Tab = tab,
-										Section = section,
-										Root = root,
-										Score = score,
-									})
-								end
-							end
-						end
-					end
+			local matches = true
+			for _, token in ipairs(queryTokens) do
+				if not string.find(haystack, token, 1, true) then
+					matches = false
+					break
 				end
+			end
+
+			if matches then
+				local normalizedTitle = normalizeSearchText(title)
+				local score = 20
+				if normalizedTitle == normalizedQuery then
+					score = 120
+				elseif string.sub(normalizedTitle, 1, #normalizedQuery) == normalizedQuery then
+					score = 90
+				elseif string.find(normalizedTitle, normalizedQuery, 1, true) then
+					score = 70
+				elseif string.find(normalizeSearchText(tab._name), normalizedQuery, 1, true) then
+					score = 50
+				elseif
+					sectionName ~= "" and string.find(normalizeSearchText(sectionName), normalizedQuery, 1, true)
+				then
+					score = 42
+				end
+
+				table.insert(results, {
+					Title = title ~= "" and title or "Untitled component",
+					Description = description ~= "" and description or nil,
+					Tab = tab,
+					Section = section,
+					Root = root,
+					Score = score,
+				})
 			end
 		end
 	end
@@ -2145,7 +2668,7 @@ function WindowMethods:_activateSearchResult(result)
 	end)
 end
 
-function WindowMethods:_renderSearchResults(query)
+function WindowMethods:_renderSearchResultsInternal(query)
 	if self._destroyed or not self._searchEnabled then
 		return
 	end
@@ -2169,7 +2692,7 @@ function WindowMethods:_renderSearchResults(query)
 			Name = "EmptySearch",
 			Size = UDim2.new(1, -8, 0, 48),
 			Font = Enum.Font.GothamMedium,
-			Text = "Nenhum resultado para “" .. tostring(query) .. "”",
+			Text = "No results for “" .. tostring(query) .. "”",
 			TextColor3 = Theme.Subtext,
 			TextXAlignment = Enum.TextXAlignment.Left,
 			TextSize = 12,
@@ -2222,14 +2745,12 @@ function WindowMethods:_renderSearchResults(query)
 				TextTruncate = Enum.TextTruncate.AtEnd,
 				ZIndex = 50,
 			})
-			makeTextLabel(row, {
+			makeIcon(row, {
+				Icon = "chevron-right",
 				AnchorPoint = Vector2.new(1, 0.5),
 				Position = UDim2.new(1, -12, 0.5, 0),
-				Size = UDim2.fromOffset(16, 20),
-				Font = Enum.Font.GothamBold,
-				Text = "›",
-				TextColor3 = Theme.Subtext,
-				TextSize = 17,
+				Size = UDim2.fromOffset(15, 15),
+				Color = Theme.Subtext,
 				ZIndex = 50,
 			})
 
@@ -2249,33 +2770,43 @@ function WindowMethods:_renderSearchResults(query)
 	self._searchResults.Size = UDim2.new(0, self._searchBarWidth or 320, 0, panelHeight)
 end
 
-function WindowMethods:SetSearchQuery(query)
-	if self._destroyed or not self._searchBox then
-		return self
+function WindowMethods:_clearSearchResults()
+	self:_clearSearchResultsInternal()
+end
+
+function WindowMethods:_renderSearchResults(query)
+	if self._searchController then
+		self._searchController:SetQuery(query)
+	else
+		self:_renderSearchResultsInternal(query)
 	end
-	self._searchBox.Text = tostring(query or "")
-	self:_renderSearchResults(self._searchBox.Text)
+end
+
+function WindowMethods:GetSearchController()
+	return self._searchController
+end
+
+function WindowMethods:SetSearchQuery(query)
+	if not self._destroyed and self._searchController then
+		self._searchController:SetQuery(query)
+	end
 	return self
 end
 
 function WindowMethods:GetSearchQuery()
-	return self._searchBox and self._searchBox.Text or ""
+	return self._searchController and self._searchController:GetQuery() or ""
 end
 
 function WindowMethods:FocusSearch()
-	if not self._destroyed and self._searchEnabled and self._searchBox then
-		self._searchBox:CaptureFocus()
+	if not self._destroyed and self._searchController then
+		self._searchController:Focus()
 	end
 	return self
 end
 
 function WindowMethods:SetSearchVisible(visible)
-	self._searchEnabled = visible == true
-	if self._searchContainer then
-		self._searchContainer.Visible = self._searchEnabled
-	end
-	if not self._searchEnabled then
-		self:_clearSearchResults()
+	if self._searchController then
+		self._searchController:SetVisible(visible)
 	end
 	return self
 end
@@ -2283,7 +2814,7 @@ end
 function WindowMethods:SetKeybind(keyCode)
 	local normalized = normalizeKeyCode(keyCode)
 	if keyCode ~= nil and keyCode ~= false and keyCode ~= Enum.KeyCode.Unknown and normalized == nil then
-		warn("[SpotifyUI] Keybind inválido:", keyCode)
+		warn("[SpotifyUI] Invalid keybind:", keyCode)
 		return self
 	end
 
@@ -2291,7 +2822,7 @@ function WindowMethods:SetKeybind(keyCode)
 	for _, listener in pairs(self._keybindListeners) do
 		local ok, err = pcall(listener, normalized)
 		if not ok then
-			warn("[SpotifyUI] Erro ao atualizar Keybind Picker:", err)
+			warn("[SpotifyUI] Keybind Picker update error:", err)
 		end
 	end
 
@@ -2803,8 +3334,8 @@ function WindowMethods:SetMinimized(minimized, instant)
 	end
 
 	if targetMinimized then
-		-- Esconde todas as camadas da janela no mesmo frame. Nenhum filho fica
-		-- visível sozinho enquanto o mini player aparece.
+		-- Hide every window layer in the same frame so no child remains
+		-- visible on its own while the mini player appears.
 		self._main.Visible = false
 		self._outline.Visible = false
 		self._shadow.Visible = false
@@ -2840,8 +3371,8 @@ function WindowMethods:SetMinimized(minimized, instant)
 		end)
 		self._modeMaid:Give(connection)
 	else
-		-- O popup sai inteiro e a janela volta inteira no mesmo frame. A única
-		-- animação restante é um pequeno pop de escala, sem fade desencontrado.
+		-- The popup disappears as one unit and the window returns in the same frame. The only
+		-- remaining animation is a small scale pop with no mismatched fade.
 		self._miniPlayer.Visible = false
 		self._miniPlayer.GroupTransparency = 1
 
@@ -2907,11 +3438,7 @@ function WindowMethods:_setSettingsTabVisual(open)
 		Color = open and Theme.AccentSoft or Theme.Stroke,
 		Transparency = open and 0.72 or 1,
 	})
-	if tab._iconIsImage then
-		playTween(tab._icon, FAST_TWEEN_INFO, { ImageColor3 = open and Theme.Text or tab._iconColor })
-	else
-		playTween(tab._icon, FAST_TWEEN_INFO, { TextColor3 = open and Theme.Text or tab._iconColor })
-	end
+	setIconColor(tab._icon, open and Theme.Text or tab._iconColor, FAST_TWEEN_INFO)
 end
 
 function WindowMethods:IsSettingsPanelVisible()
@@ -3125,13 +3652,14 @@ function WindowMethods:_updateResponsiveScale(animated)
 	local searchWidth = math.clamp(contentLogicalWidth - 180, 160, 360)
 	local searchOffset = showTopbarTitle and 12 or -12
 	self._searchBarWidth = searchWidth
-	self._searchContainer.Position = UDim2.new(0.5, searchOffset, 0.5, 0)
-	self._searchContainer.Size = UDim2.fromOffset(searchWidth, SEARCH_BAR_HEIGHT)
-	self._searchResults.Position = UDim2.new(0.5, searchOffset, 0, TOPBAR_HEIGHT - 2)
-	if self._searchResults.Visible then
-		self._searchResults.Size = UDim2.new(0, searchWidth, 0, self._searchResults.Size.Y.Offset)
+	if self._searchController then
+		self._searchController:Resize(searchWidth, searchOffset)
 	else
-		self._searchResults.Size = UDim2.new(0, searchWidth, 0, 0)
+		self._searchContainer.Position = UDim2.new(0.5, searchOffset, 0.5, 0)
+		self._searchContainer.Size = UDim2.fromOffset(searchWidth, SEARCH_BAR_HEIGHT)
+		self._searchResults.Position = UDim2.new(0.5, searchOffset, 0, TOPBAR_HEIGHT - 2)
+		self._searchResults.Size =
+			UDim2.new(0, searchWidth, 0, self._searchResults.Visible and self._searchResults.Size.Y.Offset or 0)
 	end
 
 	self:_syncWindowLayers()
@@ -3155,7 +3683,7 @@ function WindowMethods:_bindCurrentCamera()
 end
 
 function WindowMethods:CreateTab(nameOrConfig, iconOverride)
-	assert(not self._destroyed, "[SpotifyUI] A janela já foi destruída.")
+	assert(not self._destroyed, "[SpotifyUI] The window has already been destroyed.")
 	local tabConfig = normalizeTabConfig(nameOrConfig, iconOverride)
 	local tabName = tabConfig.Name
 	local isSettings = tabConfig.IsSettings == true
@@ -3180,8 +3708,8 @@ function WindowMethods:CreateTab(nameOrConfig, iconOverride)
 		ZIndex = 6,
 	})
 	addCorner(tabButton, CONTROL_CORNER_RADIUS)
-	-- O contorno fica 2 px para dentro. Assim o UIStroke de 2 px não é
-	-- cortado pelo container da sidebar nem pelo tween de escala do botão.
+	-- The outline sits 2 px inside so the 2 px UIStroke is not
+	-- clipped by the sidebar container or the button scale tween.
 	local tabStroke, tabBorder = addInsetStroke(tabButton, CONTROL_CORNER_RADIUS, Theme.Stroke, 1, 2, 7)
 	local tabScale = create("UIScale", {
 		Scale = 1,
@@ -3199,33 +3727,14 @@ function WindowMethods:CreateTab(nameOrConfig, iconOverride)
 	})
 	addCorner(indicator, 2)
 
-	local tabIcon
-	local iconIsImage = isImageIcon(tabConfig.Icon)
-	if iconIsImage then
-		tabIcon = create("ImageLabel", {
-			Name = "Icon",
-			Position = UDim2.fromOffset(14, 11),
-			Size = UDim2.fromOffset(20, 20),
-			BackgroundTransparency = 1,
-			BorderSizePixel = 0,
-			Image = tostring(tabConfig.Icon),
-			ImageColor3 = tabConfig.IconColor or Theme.Subtext,
-			ScaleType = Enum.ScaleType.Fit,
-			ZIndex = 8,
-			Parent = tabButton,
-		})
-	else
-		tabIcon = makeTextLabel(tabButton, {
-			Name = "Icon",
-			Position = UDim2.fromOffset(12, 0),
-			Size = UDim2.fromOffset(24, 42),
-			Font = Enum.Font.GothamBold,
-			Text = tostring(tabConfig.Icon or "•"),
-			TextColor3 = tabConfig.IconColor or Theme.Subtext,
-			TextSize = 17,
-			ZIndex = 8,
-		})
-	end
+	local tabIcon, iconIsImage = makeIcon(tabButton, {
+		Icon = tabConfig.Icon or "circle",
+		InstanceName = "Icon",
+		Position = UDim2.fromOffset(14, 11),
+		Size = UDim2.fromOffset(20, 20),
+		Color = tabConfig.IconColor or Theme.Subtext,
+		ZIndex = 8,
+	})
 
 	local tabLabel = makeTextLabel(tabButton, {
 		Position = UDim2.fromOffset(44, 0),
@@ -3302,12 +3811,8 @@ function WindowMethods:CreateTab(nameOrConfig, iconOverride)
 	tabMaid:Give(tabButton)
 	tabMaid:Give(page)
 
-	local function setIconColor(color)
-		if tab._iconIsImage then
-			tab._icon.ImageColor3 = color
-		else
-			tab._icon.TextColor3 = color
-		end
+	local function updateTabIconColor(color)
+		setIconColor(tab._icon, color)
 	end
 
 	tabMaid:Give(tabButton.MouseEnter:Connect(function()
@@ -3319,7 +3824,7 @@ function WindowMethods:CreateTab(nameOrConfig, iconOverride)
 				Transparency = 0.78,
 			})
 			playTween(tabScale, FAST_TWEEN_INFO, { Scale = 1 })
-			setIconColor(Theme.Text)
+			updateTabIconColor(Theme.Text)
 		end
 	end))
 
@@ -3329,7 +3834,7 @@ function WindowMethods:CreateTab(nameOrConfig, iconOverride)
 			playTween(tabLabel, FAST_TWEEN_INFO, { TextColor3 = Theme.Subtext })
 			playTween(tabStroke, FAST_TWEEN_INFO, { Transparency = 1 })
 			playTween(tabScale, FAST_TWEEN_INFO, { Scale = 1 })
-			setIconColor(tabConfig.IconColor or Theme.Subtext)
+			updateTabIconColor(tabConfig.IconColor or Theme.Subtext)
 		end
 	end))
 
@@ -3411,15 +3916,7 @@ function WindowMethods:SelectTab(tabOrName)
 			})
 			playTween(tab._scale, FAST_TWEEN_INFO, { Scale = 1 })
 
-			if tab._iconIsImage then
-				playTween(tab._icon, FAST_TWEEN_INFO, {
-					ImageColor3 = selected and Theme.Text or tab._iconColor,
-				})
-			else
-				playTween(tab._icon, FAST_TWEEN_INFO, {
-					TextColor3 = selected and Theme.Text or tab._iconColor,
-				})
-			end
+			setIconColor(tab._icon, selected and Theme.Text or tab._iconColor, FAST_TWEEN_INFO)
 		end
 	end
 
@@ -3441,22 +3938,16 @@ function WindowMethods:_createSettingsTab()
 
 	local settingsTab = self:CreateTab({
 		Name = "Settings",
-		Icon = "⚙",
+		Icon = "settings",
 		IsSettings = true,
 		_Internal = true,
 	})
 
 	local shortcutsSection = settingsTab:CreateSection("Interface")
 	self._settingsKeybindPicker = shortcutsSection:CreateKeybindPicker({
-		Text = "Abrir / fechar menu",
-		Description = "Clique e pressione uma tecla. Backspace ou Delete remove o atalho.",
+		Text = "Open / close menu",
+		Description = "Click, then press a key. Backspace or Delete clears the shortcut.",
 		BindToWindow = true,
-	})
-
-	self._settingsOwnerCredits = shortcutsSection:CreateLabel({
-		Text = "Spotify UI Library created by @spectronal",
-		Bold = true,
-		Color = Library.Theme.AccentHover,
 	})
 
 	return settingsTab
@@ -3476,8 +3967,8 @@ function WindowMethods:Notify(config)
 
 	self._notificationCounter += 1
 
-	-- O layout move apenas o slot. A notificação anima dentro dele, então o
-	-- UIListLayout nunca disputa a propriedade Position com os tweens.
+	-- The layout moves only the slot. The notification animates inside it, so the
+	-- UIListLayout never competes with the tweens for the Position property.
 	local slot = create("Frame", {
 		Name = "NotificationSlot",
 		Size = UDim2.fromOffset(326, toastHeight + 8),
@@ -3490,9 +3981,9 @@ function WindowMethods:Notify(config)
 	})
 	toastMaid:Give(slot)
 
-	-- CanvasGroup transparente apenas para animação de posição e opacidade.
-	-- A superfície visual fica separada, impedindo que ClipsDescendants corte
-	-- o UIStroke ou transforme os cantos arredondados em cantos quadrados.
+	-- Transparent CanvasGroup used only for position and opacity animation.
+	-- The visual surface stays separate, preventing ClipsDescendants from clipping
+	-- the UIStroke or turning rounded corners into square corners.
 	local toast = create("CanvasGroup", {
 		Name = "Notification",
 		Position = UDim2.fromOffset(30, 0),
@@ -3560,7 +4051,7 @@ function WindowMethods:Notify(config)
 	makeTextLabel(surface, {
 		Position = UDim2.fromOffset(24, y),
 		Size = UDim2.new(1, -62, 0, config.Title and 38 or 44),
-		Text = tostring(config.Content or config.Text or "Notificação"),
+		Text = tostring(config.Content or config.Text or "Notification"),
 		TextColor3 = Theme.Subtext,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Top,
@@ -3574,10 +4065,16 @@ function WindowMethods:Notify(config)
 		Position = UDim2.new(1, -36, 0, 8),
 		Size = UDim2.fromOffset(28, 28),
 		BackgroundTransparency = 1,
-		Text = "×",
-		TextColor3 = Theme.Subtext,
-		TextSize = 13,
+		Text = "",
 		ZIndex = 207,
+	})
+	local closeIcon = makeIcon(closeButton, {
+		Icon = "x",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(14, 14),
+		Color = Theme.Subtext,
+		ZIndex = 208,
 	})
 
 	local progressTrack = create("Frame", {
@@ -3620,10 +4117,10 @@ function WindowMethods:Notify(config)
 
 	toastMaid:Give(closeButton.MouseButton1Click:Connect(dismiss))
 	toastMaid:Give(closeButton.MouseEnter:Connect(function()
-		playTween(closeButton, FAST_TWEEN_INFO, { TextColor3 = Theme.Text })
+		setIconColor(closeIcon, Theme.Text, FAST_TWEEN_INFO)
 	end))
 	toastMaid:Give(closeButton.MouseLeave:Connect(function()
-		playTween(closeButton, FAST_TWEEN_INFO, { TextColor3 = Theme.Subtext })
+		setIconColor(closeIcon, Theme.Subtext, FAST_TWEEN_INFO)
 	end))
 
 	toastMaid:Give(playTween(toast, POP_TWEEN_INFO, {
@@ -3670,8 +4167,31 @@ function WindowMethods:Destroy()
 	end
 end
 
+function Library:SetIconProvider(provider)
+	IconProviderState.Provider = provider
+	IconProviderState.Attempted = provider ~= nil
+	return self
+end
+
+function Library:GetIconProvider()
+	return getLucideProvider()
+end
+
+function Library:ReloadLucide(sourceUrl)
+	IconProviderState.Provider = nil
+	IconProviderState.Attempted = false
+	return loadLucideProvider(sourceUrl or IconProviderState.SourceUrl)
+end
+
 function Library:CreateWindow(config)
 	config = config or {}
+	if config.IconProvider ~= nil then
+		self:SetIconProvider(config.IconProvider)
+	elseif config.LucideUrl ~= nil then
+		self:ReloadLucide(config.LucideUrl)
+	elseif config.LoadLucide ~= false then
+		getLucideProvider()
+	end
 	self._windowCounter += 1
 
 	local parent = getPlayerGui(config.Parent)
@@ -3708,7 +4228,7 @@ function Library:CreateWindow(config)
 	else
 		initialKeybind = normalizeKeyCode(config.Keybind)
 		if config.Keybind ~= false and config.Keybind ~= Enum.KeyCode.Unknown and initialKeybind == nil then
-			warn("[SpotifyUI] Keybind inicial inválido; usando RightShift.")
+			warn("[SpotifyUI] Invalid initial keybind; falling back to RightShift.")
 			initialKeybind = Enum.KeyCode.RightShift
 		end
 	end
@@ -3735,8 +4255,8 @@ function Library:CreateWindow(config)
 	})
 	addCorner(shadow, WINDOW_CORNER_RADIUS + 5)
 
-	-- O contorno fica em uma camada própria, exatamente do tamanho da janela.
-	-- Isso evita a moldura preenchida e espessuras irregulares.
+	-- The outline lives on its own layer at exactly the window size.
+	-- This avoids a filled frame and uneven outline thickness.
 	local outline = create("Frame", {
 		Name = "WindowOutline",
 		AnchorPoint = Vector2.new(0.5, 0.5),
@@ -3787,8 +4307,8 @@ function Library:CreateWindow(config)
 		Parent = main,
 	})
 
-	-- ClipsDescendants usa um recorte retangular. As superfícies abaixo pintam
-	-- somente os cantos externos corretos, sem depender de clipping arredondado.
+	-- ClipsDescendants uses a rectangular clip. The surfaces below paint
+	-- only the correct outer corners without relying on rounded clipping.
 	local sidebarSurface = create("Frame", {
 		Name = "Surface",
 		Size = UDim2.fromScale(1, 1),
@@ -3992,13 +4512,11 @@ function Library:CreateWindow(config)
 	local searchStroke = addInsetStroke(searchContainer, SEARCH_BAR_HEIGHT / 2, Theme.Stroke, 0.62, 2, 11)
 	addGradient(searchContainer, Color3.fromRGB(40, 40, 40), Color3.fromRGB(31, 31, 31), 90)
 
-	local searchIcon = makeTextLabel(searchContainer, {
-		Position = UDim2.fromOffset(13, 0),
-		Size = UDim2.fromOffset(24, SEARCH_BAR_HEIGHT),
-		Font = Enum.Font.GothamBold,
-		Text = "⌕",
-		TextColor3 = Theme.Subtext,
-		TextSize = 18,
+	local searchIcon = makeIcon(searchContainer, {
+		Icon = "search",
+		Position = UDim2.fromOffset(14, 10),
+		Size = UDim2.fromOffset(18, 18),
+		Color = Theme.Subtext,
 		ZIndex = 12,
 	})
 
@@ -4011,7 +4529,7 @@ function Library:CreateWindow(config)
 		ClearTextOnFocus = false,
 		Font = Enum.Font.GothamMedium,
 		PlaceholderColor3 = Theme.Subtext,
-		PlaceholderText = tostring(config.SearchPlaceholder or "O que você quer encontrar?"),
+		PlaceholderText = tostring(config.SearchPlaceholder or "What do you want to find?"),
 		Text = "",
 		TextColor3 = Theme.Text,
 		TextSize = 12,
@@ -4026,11 +4544,17 @@ function Library:CreateWindow(config)
 		Position = UDim2.new(1, -9, 0.5, 0),
 		Size = UDim2.fromOffset(24, 24),
 		BackgroundTransparency = 1,
-		Text = "×",
-		TextColor3 = Theme.Subtext,
-		TextSize = 13,
+		Text = "",
 		Visible = false,
 		ZIndex = 13,
+	})
+	local searchClearIcon = makeIcon(searchClearButton, {
+		Icon = "x",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(14, 14),
+		Color = Theme.Subtext,
+		ZIndex = 14,
 	})
 
 	local searchResults = create("Frame", {
@@ -4083,14 +4607,24 @@ function Library:CreateWindow(config)
 		Position = UDim2.new(1, -190, 0.5, -16),
 		Size = UDim2.fromOffset(32, 32),
 		BackgroundColor3 = Theme.Card,
-		Text = "−",
-		TextSize = 17,
+		Text = "",
 		Visible = false,
 		ZIndex = 7,
 	})
 	addCorner(scaleMinus, 16)
 	local scaleMinusStroke = addStroke(scaleMinus, Theme.Stroke, 0.78, 1)
 	local scaleMinusScale = create("UIScale", { Scale = 1, Parent = scaleMinus })
+	local scaleMinusIcon = makeIcon(
+		scaleMinus,
+		{
+			Icon = "minus",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(15, 15),
+			Color = Theme.Subtext,
+			ZIndex = 8,
+		}
+	)
 
 	local scaleLabel = makeTextLabel(topbar, {
 		Position = UDim2.new(1, -154, 0.5, -16),
@@ -4107,40 +4641,68 @@ function Library:CreateWindow(config)
 		Position = UDim2.new(1, -94, 0.5, -16),
 		Size = UDim2.fromOffset(32, 32),
 		BackgroundColor3 = Theme.Card,
-		Text = "+",
-		TextSize = 16,
+		Text = "",
 		Visible = false,
 		ZIndex = 7,
 	})
 	addCorner(scalePlus, 16)
 	local scalePlusStroke = addStroke(scalePlus, Theme.Stroke, 0.78, 1)
 	local scalePlusScale = create("UIScale", { Scale = 1, Parent = scalePlus })
+	local scalePlusIcon = makeIcon(
+		scalePlus,
+		{
+			Icon = "plus",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(15, 15),
+			Color = Theme.Subtext,
+			ZIndex = 8,
+		}
+	)
 
 	local minimizeButton = makeTextButton(topbar, {
 		Position = UDim2.new(1, -90, 0.5, -16),
 		Size = UDim2.fromOffset(32, 32),
 		BackgroundColor3 = Theme.Card,
-		Text = "−",
-		TextColor3 = Theme.Subtext,
-		TextSize = 16,
+		Text = "",
 		ZIndex = 7,
 	})
 	addCorner(minimizeButton, 16)
 	local minimizeStroke = addStroke(minimizeButton, Theme.Stroke, 0.78, 2)
 	local minimizeScale = create("UIScale", { Scale = 1, Parent = minimizeButton })
+	local minimizeIcon = makeIcon(
+		minimizeButton,
+		{
+			Icon = "minus",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(15, 15),
+			Color = Theme.Subtext,
+			ZIndex = 8,
+		}
+	)
 
 	local closeButton = makeTextButton(topbar, {
 		Position = UDim2.new(1, -50, 0.5, -16),
 		Size = UDim2.fromOffset(32, 32),
 		BackgroundColor3 = Theme.Card,
-		Text = "×",
-		TextColor3 = Theme.Subtext,
-		TextSize = 13,
+		Text = "",
 		ZIndex = 7,
 	})
 	addCorner(closeButton, 16)
 	local closeStroke = addStroke(closeButton, Theme.Stroke, 0.78, 1)
 	local closeScale = create("UIScale", { Scale = 1, Parent = closeButton })
+	local windowCloseIcon = makeIcon(
+		closeButton,
+		{
+			Icon = "x",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(14, 14),
+			Color = Theme.Subtext,
+			ZIndex = 8,
+		}
+	)
 
 	local pageContainer = create("Frame", {
 		Name = "Pages",
@@ -4192,9 +4754,9 @@ function Library:CreateWindow(config)
 		Parent = nowPlaying,
 	})
 
-	-- Os controles de escala saem da topbar e ocupam a área central da barra
-	-- inferior, seguindo a hierarquia visual dos controles de reprodução do
-	-- Spotify: diminuir à esquerda, valor atual no centro e aumentar à direita.
+	-- Scale controls leave the top bar and occupy the center of the bottom bar,
+	-- following the visual hierarchy of Spotify playback controls:
+	-- decrease on the left, current value in the center, and increase on the right.
 	local scaleControls = create("Frame", {
 		Name = "ScaleControls",
 		AnchorPoint = Vector2.new(0.5, 0),
@@ -4207,6 +4769,7 @@ function Library:CreateWindow(config)
 	})
 
 	scaleMinus.Parent = scaleControls
+	scaleMinus.Visible = true
 	scaleMinus.Position = UDim2.fromOffset(4, 4)
 	scaleMinus.Size = UDim2.fromOffset(34, 34)
 	scaleMinus.BackgroundColor3 = Theme.PanelAlt
@@ -4214,6 +4777,7 @@ function Library:CreateWindow(config)
 	scaleMinus.ZIndex = 24
 
 	scaleLabel.Parent = scaleControls
+	scaleLabel.Visible = true
 	scaleLabel.Position = UDim2.fromOffset(54, 4)
 	scaleLabel.Size = UDim2.fromOffset(70, 34)
 	scaleLabel.BackgroundColor3 = Theme.Text
@@ -4225,6 +4789,7 @@ function Library:CreateWindow(config)
 	addStroke(scaleLabel, Theme.Stroke, 0.7, 2)
 
 	scalePlus.Parent = scaleControls
+	scalePlus.Visible = true
 	scalePlus.Position = UDim2.fromOffset(140, 4)
 	scalePlus.Size = UDim2.fromOffset(34, 34)
 	scalePlus.BackgroundColor3 = Theme.PanelAlt
@@ -4245,12 +4810,10 @@ function Library:CreateWindow(config)
 	addStroke(gameIconHolder, Theme.Stroke, 0.62, 1)
 	local gameIconScale = create("UIScale", { Scale = 1, Parent = gameIconHolder })
 
-	makeTextLabel(gameIconHolder, {
+	makeIcon(gameIconHolder, {
+		Icon = "gamepad-2",
 		Size = UDim2.fromScale(1, 1),
-		Font = Enum.Font.GothamBold,
-		Text = "◇",
-		TextColor3 = Theme.Subtext,
-		TextSize = 22,
+		Color = Theme.Subtext,
 		ZIndex = 21,
 	})
 
@@ -4275,7 +4838,7 @@ function Library:CreateWindow(config)
 		Position = UDim2.fromOffset(88, 15),
 		Size = UDim2.new(0.5, -190, 0, 25),
 		Font = Enum.Font.GothamBold,
-		Text = tostring(config.GameName or game.Name or "Experiência Roblox"),
+		Text = tostring(config.GameName or game.Name or "Roblox Experience"),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextSize = 16,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -4286,7 +4849,7 @@ function Library:CreateWindow(config)
 		Name = "GameCreator",
 		Position = UDim2.fromOffset(88, 42),
 		Size = UDim2.new(0.5, -190, 0, 20),
-		Text = tostring(config.GameCreator or "Criador do jogo"),
+		Text = tostring(config.GameCreator or "Game creator"),
 		TextColor3 = Theme.Subtext,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextSize = 12,
@@ -4340,7 +4903,7 @@ function Library:CreateWindow(config)
 		Position = UDim2.fromOffset(30, 0),
 		Size = UDim2.new(1, -38, 1, 0),
 		Font = Enum.Font.GothamMedium,
-		Text = "Experiência atual",
+		Text = "Current experience",
 		TextColor3 = Theme.Subtext,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextSize = 11,
@@ -4418,7 +4981,7 @@ function Library:CreateWindow(config)
 		Position = UDim2.new(1, 0, 0, 11),
 		Size = UDim2.fromOffset(150, 17),
 		Font = Enum.Font.GothamMedium,
-		Text = tostring(config.SessionTimerText or "Tempo aberto"),
+		Text = tostring(config.SessionTimerText or "Time open"),
 		TextColor3 = Theme.Muted,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		TextSize = 10,
@@ -4462,8 +5025,8 @@ function Library:CreateWindow(config)
 		playTween(gameIconScale, FAST_TWEEN_INFO, { Scale = 1 })
 	end))
 
-	-- Painel lateral inspirado no painel "Now Playing" do Spotify desktop.
-	-- Ele vive dentro da área de conteúdo, entra pela direita e não atravessa a janela.
+	-- Side panel inspired by Spotify desktop's Now Playing panel.
+	-- It lives inside the content area, slides in from the right, and never crosses the window.
 	local settingsViewport = create("Frame", {
 		Name = "SettingsViewport",
 		Position = UDim2.fromOffset(0, 0),
@@ -4561,10 +5124,16 @@ function Library:CreateWindow(config)
 		Position = UDim2.new(1, -44, 0.5, -15),
 		Size = UDim2.fromOffset(30, 30),
 		BackgroundColor3 = Theme.Card,
-		Text = "×",
-		TextColor3 = Theme.Subtext,
-		TextSize = 13,
+		Text = "",
 		ZIndex = 65,
+	})
+	makeIcon(settingsCloseButton, {
+		Icon = "x",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(14, 14),
+		Color = Theme.Subtext,
+		ZIndex = 66,
 	})
 	addCorner(settingsCloseButton, 15)
 	local settingsCloseStroke = addStroke(settingsCloseButton, Theme.Stroke, 0.72, 2)
@@ -4630,7 +5199,7 @@ function Library:CreateWindow(config)
 		Position = UDim2.fromOffset(13, 11),
 		Size = UDim2.new(1, -26, 0, 17),
 		Font = Enum.Font.GothamMedium,
-		Text = "●  Experiência atual",
+		Text = "●  Current experience",
 		TextColor3 = Theme.Text,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextSize = 9,
@@ -4641,7 +5210,7 @@ function Library:CreateWindow(config)
 		Position = UDim2.new(0, 14, 1, -55),
 		Size = UDim2.new(1, -28, 0, 24),
 		Font = Enum.Font.GothamBold,
-		Text = tostring(config.GameName or game.Name or "Experiência Roblox"),
+		Text = tostring(config.GameName or game.Name or "Roblox Experience"),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextSize = 16,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -4651,7 +5220,7 @@ function Library:CreateWindow(config)
 		Position = UDim2.new(0, 14, 1, -31),
 		Size = UDim2.new(1, -28, 0, 18),
 		Font = Enum.Font.GothamMedium,
-		Text = tostring(config.GameCreator or "Criador do jogo"),
+		Text = tostring(config.GameCreator or "Game creator"),
 		TextColor3 = Theme.Subtext,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextSize = 10,
@@ -4663,7 +5232,7 @@ function Library:CreateWindow(config)
 		Position = UDim2.fromOffset(14, 250),
 		Size = UDim2.new(1, -28, 0, 24),
 		Font = Enum.Font.GothamBold,
-		Text = "Configurações",
+		Text = "Settings",
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextSize = 14,
 		ZIndex = 64,
@@ -4680,8 +5249,8 @@ function Library:CreateWindow(config)
 		Parent = settingsSurface,
 	})
 
-	-- Mini player compacto, ancorado no canto inferior direito e arrastável.
-	-- A escala é compartilhada com a janela principal.
+	-- Compact draggable mini player anchored to the bottom-right corner.
+	-- Scale is shared with the main window.
 	local miniPlayer = create("CanvasGroup", {
 		Name = "MiniPlayer",
 		AnchorPoint = Vector2.new(1, 1),
@@ -4723,6 +5292,7 @@ function Library:CreateWindow(config)
 	addCorner(miniSurface, 16)
 
 	local miniDarkOverlay = create("Frame", {
+		Name = "MiniDarkOverlay",
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Color3.fromRGB(8, 8, 8),
 		BackgroundTransparency = 0.18,
@@ -4730,7 +5300,6 @@ function Library:CreateWindow(config)
 		ZIndex = 122,
 		Parent = miniSurface,
 	})
-
 	addCorner(miniDarkOverlay, 16)
 	create("UIGradient", {
 		Color = ColorSequence.new({
@@ -4773,7 +5342,7 @@ function Library:CreateWindow(config)
 		Position = UDim2.fromOffset(14, 9),
 		Size = UDim2.new(1, -58, 0, 14),
 		Font = Enum.Font.GothamMedium,
-		Text = "●  Experiência em execução",
+		Text = "●  Experience running",
 		TextColor3 = Theme.Text,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextSize = 9,
@@ -4785,10 +5354,16 @@ function Library:CreateWindow(config)
 		Size = UDim2.fromOffset(26, 26),
 		BackgroundColor3 = Color3.fromRGB(22, 22, 22),
 		BackgroundTransparency = 0.16,
-		Text = "↗",
-		TextColor3 = Theme.Text,
-		TextSize = 13,
+		Text = "",
 		ZIndex = 128,
+	})
+	local expandIcon = makeIcon(expandButton, {
+		Icon = "maximize-2",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(13, 13),
+		Color = Theme.Text,
+		ZIndex = 129,
 	})
 	addCorner(expandButton, 13)
 	local expandStroke = addStroke(expandButton, Theme.Text, 0.68, 2)
@@ -4798,7 +5373,7 @@ function Library:CreateWindow(config)
 		Position = UDim2.fromOffset(14, 34),
 		Size = UDim2.new(1, -62, 0, 20),
 		Font = Enum.Font.GothamBold,
-		Text = tostring(config.GameName or game.Name or "Experiência Roblox"),
+		Text = tostring(config.GameName or game.Name or "Roblox Experience"),
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextSize = 14,
 		TextTruncate = Enum.TextTruncate.AtEnd,
@@ -4808,7 +5383,7 @@ function Library:CreateWindow(config)
 		Position = UDim2.fromOffset(14, 55),
 		Size = UDim2.new(1, -28, 0, 15),
 		Font = Enum.Font.GothamMedium,
-		Text = tostring(config.GameCreator or "Criador do jogo"),
+		Text = tostring(config.GameCreator or "Game creator"),
 		TextColor3 = Theme.Subtext,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextSize = 10,
@@ -4864,7 +5439,7 @@ function Library:CreateWindow(config)
 		Position = UDim2.new(1, -14, 0, 89),
 		Size = UDim2.fromOffset(100, 16),
 		Font = Enum.Font.GothamMedium,
-		Text = sessionTimerDuration and formatElapsedTime(sessionTimerDuration) or "Sem limite",
+		Text = sessionTimerDuration and formatElapsedTime(sessionTimerDuration) or "No limit",
 		TextColor3 = Theme.Subtext,
 		TextXAlignment = Enum.TextXAlignment.Right,
 		TextSize = 8,
@@ -4885,11 +5460,20 @@ function Library:CreateWindow(config)
 		Size = UDim2.fromOffset(30, 30),
 		BackgroundColor3 = Color3.fromRGB(22, 22, 22),
 		BackgroundTransparency = 0.14,
-		Text = "−",
-		TextColor3 = Theme.Text,
-		TextSize = 17,
+		Text = "",
 		ZIndex = 127,
 	})
+	local miniScaleMinusIcon = makeIcon(
+		miniScaleMinus,
+		{
+			Icon = "minus",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(15, 15),
+			Color = Theme.Text,
+			ZIndex = 128,
+		}
+	)
 	addCorner(miniScaleMinus, 15)
 	local miniScaleMinusStroke = addStroke(miniScaleMinus, Theme.Text, 0.74, 2)
 	local miniScaleMinusScale = create("UIScale", { Scale = 1, Parent = miniScaleMinus })
@@ -4913,17 +5497,26 @@ function Library:CreateWindow(config)
 		Size = UDim2.fromOffset(30, 30),
 		BackgroundColor3 = Color3.fromRGB(22, 22, 22),
 		BackgroundTransparency = 0.14,
-		Text = "+",
-		TextColor3 = Theme.Text,
-		TextSize = 16,
+		Text = "",
 		ZIndex = 127,
 	})
+	local miniScalePlusIcon = makeIcon(
+		miniScalePlus,
+		{
+			Icon = "plus",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(15, 15),
+			Color = Theme.Text,
+			ZIndex = 128,
+		}
+	)
 	addCorner(miniScalePlus, 15)
 	local miniScalePlusStroke = addStroke(miniScalePlus, Theme.Text, 0.74, 2)
 	local miniScalePlusScale = create("UIScale", { Scale = 1, Parent = miniScalePlus })
 
-	-- Container ocupa toda a tela; o layout ancora os toasts no canto inferior
-	-- direito e empilha novas notificações para cima.
+	-- Full-screen container; the layout anchors toasts to the bottom-right
+	-- corner and stacks newer notifications upward.
 	local notificationContainer = create("Frame", {
 		Name = "Notifications",
 		Position = UDim2.fromOffset(0, 0),
@@ -4984,6 +5577,7 @@ function Library:CreateWindow(config)
 		_searchResultsList = searchResultsList,
 		_searchResultsMaid = Maid.new(),
 		_searchEnabled = config.ShowSearch ~= false,
+		_searchController = nil,
 		_searchBarWidth = initialSearchWidth,
 		_maxSearchResults = math.max(tonumber(config.MaxSearchResults) or DEFAULT_SEARCH_RESULTS, 1),
 		_pageContainer = pageContainer,
@@ -5067,7 +5661,7 @@ function Library:CreateWindow(config)
 	end
 	maid:Give(settingsPanel.DescendantAdded:Connect(elevateSettingsDescendant))
 
-	-- Mantém contorno e sombra sincronizados sem depender de UIStroke no frame recortado.
+	-- Keep outline and shadow synchronized without relying on UIStroke inside the clipped frame.
 	maid:Give(main:GetPropertyChangedSignal("Position"):Connect(function()
 		window:_syncWindowLayers()
 	end))
@@ -5095,39 +5689,16 @@ function Library:CreateWindow(config)
 		end
 	end)
 
-	maid:Give(searchBox:GetPropertyChangedSignal("Text"):Connect(function()
-		window:_renderSearchResults(searchBox.Text)
-	end))
-	maid:Give(searchBox.Focused:Connect(function()
-		playTween(searchContainer, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.InputHover })
-		playTween(searchStroke, FAST_TWEEN_INFO, {
-			Color = Theme.Text,
-			Transparency = 0.22,
-		})
-		playTween(searchIcon, FAST_TWEEN_INFO, { TextColor3 = Theme.Text })
-		window:_renderSearchResults(searchBox.Text)
-	end))
-	maid:Give(searchBox.FocusLost:Connect(function(enterPressed)
-		playTween(searchContainer, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.Input })
-		playTween(searchStroke, FAST_TWEEN_INFO, {
-			Color = Theme.Stroke,
-			Transparency = 0.62,
-		})
-		playTween(searchIcon, FAST_TWEEN_INFO, { TextColor3 = Theme.Subtext })
-		if enterPressed and window._searchResultCache and window._searchResultCache[1] then
-			window:_activateSearchResult(window._searchResultCache[1])
-		end
-	end))
-	maid:Give(searchClearButton.MouseButton1Click:Connect(function()
-		searchBox.Text = ""
-		searchBox:CaptureFocus()
-	end))
-	maid:Give(searchClearButton.MouseEnter:Connect(function()
-		playTween(searchClearButton, FAST_TWEEN_INFO, { TextColor3 = Theme.Text })
-	end))
-	maid:Give(searchClearButton.MouseLeave:Connect(function()
-		playTween(searchClearButton, FAST_TWEEN_INFO, { TextColor3 = Theme.Subtext })
-	end))
+	local searchController = SearchController.new(window, {
+		Container = searchContainer,
+		Stroke = searchStroke,
+		Icon = searchIcon,
+		Input = searchBox,
+		ClearButton = searchClearButton,
+		ClearIcon = searchClearIcon,
+	}, config)
+	window._searchController = searchController
+	maid:Give(searchController)
 
 	window:_updateSessionTimer(0)
 	maid:Give(RunService.Heartbeat:Connect(function()
@@ -5197,27 +5768,28 @@ function Library:CreateWindow(config)
 	})
 
 	for _, item in ipairs({
-		{ scaleMinus, Theme.Subtext },
-		{ scalePlus, Theme.Subtext },
-		{ miniScaleMinus, Theme.Text },
-		{ miniScalePlus, Theme.Text },
-		{ minimizeButton, Theme.Subtext },
-		{ expandButton, Theme.Text },
+		{ scaleMinus, scaleMinusIcon, Theme.Subtext },
+		{ scalePlus, scalePlusIcon, Theme.Subtext },
+		{ miniScaleMinus, miniScaleMinusIcon, Theme.Text },
+		{ miniScalePlus, miniScalePlusIcon, Theme.Text },
+		{ minimizeButton, minimizeIcon, Theme.Subtext },
+		{ expandButton, expandIcon, Theme.Text },
 	}) do
 		local button = item[1]
-		local normalColor = item[2]
+		local icon = item[2]
+		local normalColor = item[3]
 		maid:Give(button.MouseEnter:Connect(function()
-			playTween(button, FAST_TWEEN_INFO, { TextColor3 = Theme.AccentHover })
+			setIconColor(icon, Theme.AccentHover, FAST_TWEEN_INFO)
 		end))
 		maid:Give(button.MouseLeave:Connect(function()
-			playTween(button, FAST_TWEEN_INFO, { TextColor3 = normalColor })
+			setIconColor(icon, normalColor, FAST_TWEEN_INFO)
 		end))
 	end
 	maid:Give(closeButton.MouseEnter:Connect(function()
-		playTween(closeButton, FAST_TWEEN_INFO, { TextColor3 = Theme.Text })
+		setIconColor(windowCloseIcon, Theme.Text, FAST_TWEEN_INFO)
 	end))
 	maid:Give(closeButton.MouseLeave:Connect(function()
-		playTween(closeButton, FAST_TWEEN_INFO, { TextColor3 = Theme.Subtext })
+		setIconColor(windowCloseIcon, Theme.Subtext, FAST_TWEEN_INFO)
 	end))
 
 	local function changeScale(delta)
@@ -5412,12 +5984,11 @@ function Library:CreateWindow(config)
 					elseif type(creator) == "string" then
 						creatorName = creator
 					end
-					update.Creator = creatorName and creatorName ~= "" and tostring(creatorName)
-						or "Criador desconhecido"
+					update.Creator = creatorName and creatorName ~= "" and tostring(creatorName) or "Unknown creator"
 				end
 				window:SetGameInfo(update)
 			elseif config.GameCreator == nil and not window._destroyed then
-				window:SetGameInfo({ Creator = "Criador desconhecido" })
+				window:SetGameInfo({ Creator = "Unknown creator" })
 			end
 
 			maid:Forget(infoTaskId)
@@ -5448,7 +6019,7 @@ end
 function Library:Notify(config)
 	assert(
 		self._lastWindow and not self._lastWindow._destroyed,
-		"[SpotifyUI] Crie uma janela antes de enviar notificações."
+		"[SpotifyUI] Create a window before sending notifications."
 	)
 	return self._lastWindow:Notify(config)
 end
@@ -5464,5 +6035,6 @@ function Library:DestroyAll()
 end
 
 Library.Theme = Theme
+Library.LucideUrl = LUCIDE_SOURCE_URL
 
 return Library
