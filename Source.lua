@@ -4724,6 +4724,8 @@ function Library:CreateWindow(config)
 		ZIndex = 122,
 		Parent = miniSurface,
 	})
+
+	addCorner(miniDarkOverlay, 20)
 	create("UIGradient", {
 		Color = ColorSequence.new({
 			ColorSequenceKeypoint.new(0, Color3.fromRGB(30, 30, 30)),
