@@ -2630,6 +2630,7 @@ function LoadingController.new(window, screenGui, config)
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Color3.fromRGB(8, 8, 8),
 		BorderSizePixel = 0,
+		BackgroundTransparency = 1,
 		GroupTransparency = 0,
 		Visible = true,
 		Active = true,
