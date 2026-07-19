@@ -1,4 +1,4 @@
--- Source Spotify Library 2.0.1
+-- Source Spotify Library 2.1.0
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8,7 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Library = {
-	Version = "2.0.1",
+	Version = "2.1.0",
 	_windows = {},
 	_windowCounter = 0,
 }
@@ -37,6 +37,8 @@ local Theme = {
 	Track = Color3.fromRGB(78, 78, 78),
 	Shadow = Color3.fromRGB(0, 0, 0),
 	Danger = Color3.fromRGB(232, 72, 85),
+	Info = Color3.fromRGB(73, 148, 255),
+	Warning = Color3.fromRGB(245, 166, 35),
 }
 
 local TWEEN_INFO = TweenInfo.new(0.2, Enum.EasingStyle.Quad, Enum.EasingDirection.Out)
@@ -62,6 +64,19 @@ local SETTINGS_PANEL_MAX_WIDTH = 382
 local SEARCH_BAR_HEIGHT = 38
 local SEARCH_RESULTS_MAX_HEIGHT = 250
 local DEFAULT_SEARCH_RESULTS = 6
+local NOTIFICATION_WIDTH = 360
+local NOTIFICATION_CORNER_RADIUS = 14
+local LOADING_CARD_WIDTH = 430
+local LOADING_CARD_HEIGHT = 214
+local DEFAULT_LOADING_DURATION = 1.8
+
+local DEFAULT_LOADING_STAGES = {
+	{ Progress = 0.2, Text = "Loading visual assets" },
+	{ Progress = 0.48, Text = "Building interface" },
+	{ Progress = 0.76, Text = "Connecting interactions" },
+	{ Progress = 0.94, Text = "Finalizing experience" },
+	{ Progress = 1, Text = "Ready" },
+}
 
 local LUCIDE_SOURCE_URL = "https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/Libs/Lucide.luau"
 
@@ -86,6 +101,11 @@ local ICON_ALIASES = {
 	dropdown = "chevron-down",
 	selected = "check",
 	game = "gamepad-2",
+	success = "circle-check",
+	info = "info",
+	warning = "triangle-alert",
+	error = "circle-x",
+	loading = "loader-circle",
 }
 
 local ICON_FALLBACKS = {
@@ -103,7 +123,60 @@ local ICON_FALLBACKS = {
 	["chevron-down"] = "⌄",
 	["check"] = "✓",
 	["gamepad-2"] = "◇",
+	["circle-check"] = "✓",
+	["triangle-alert"] = "!",
+	["circle-x"] = "×",
+	["loader-circle"] = "◌",
 }
+
+local NOTIFICATION_STYLES = {
+	Success = {
+		Title = "Success",
+		Icon = "circle-check",
+		Color = Theme.Accent,
+		SoftColor = Color3.fromRGB(19, 72, 39),
+	},
+	Info = {
+		Title = "Information",
+		Icon = "info",
+		Color = Theme.Info,
+		SoftColor = Color3.fromRGB(25, 52, 84),
+	},
+	Warning = {
+		Title = "Warning",
+		Icon = "triangle-alert",
+		Color = Theme.Warning,
+		SoftColor = Color3.fromRGB(79, 57, 21),
+	},
+	Error = {
+		Title = "Error",
+		Icon = "circle-x",
+		Color = Theme.Danger,
+		SoftColor = Color3.fromRGB(79, 29, 36),
+	},
+}
+
+local function normalizeNotificationType(value)
+	local requested = string.lower(tostring(value or "Info"))
+	for name in pairs(NOTIFICATION_STYLES) do
+		if string.lower(name) == requested then
+			return name
+		end
+	end
+	return "Info"
+end
+
+local function resolveNotificationStyle(config)
+	local notificationType = normalizeNotificationType(config.Type)
+	local preset = NOTIFICATION_STYLES[notificationType]
+	return notificationType,
+		{
+			Title = preset.Title,
+			Icon = config.Icon or preset.Icon,
+			Color = config.Color or preset.Color,
+			SoftColor = config.SoftColor or preset.SoftColor,
+		}
+end
 
 local function normalizeIconName(value)
 	local name = string.lower(tostring(value or ""))
@@ -2501,6 +2574,430 @@ function SearchController:Destroy()
 	self._window = nil
 end
 
+local LoadingController = {}
+LoadingController.__index = LoadingController
+
+local function normalizeLoadingStages(stages)
+	if type(stages) ~= "table" or #stages == 0 then
+		return DEFAULT_LOADING_STAGES
+	end
+
+	local normalized = {}
+	local previousProgress = 0
+	for _, stage in ipairs(stages) do
+		if type(stage) == "table" then
+			local progress = math.clamp(tonumber(stage.Progress) or previousProgress, previousProgress, 1)
+			table.insert(normalized, {
+				Progress = progress,
+				Text = tostring(stage.Text or stage.Status or "Loading"),
+			})
+			previousProgress = progress
+		end
+	end
+
+	if #normalized == 0 then
+		return DEFAULT_LOADING_STAGES
+	end
+	if normalized[#normalized].Progress < 1 then
+		table.insert(normalized, { Progress = 1, Text = "Ready" })
+	end
+	return normalized
+end
+
+function LoadingController.new(window, screenGui, config)
+	local self = setmetatable({
+		_window = window,
+		_maid = Maid.new(),
+		_animationMaid = Maid.new(),
+		_enabled = config.ShowLoading ~= false,
+		_running = false,
+		_finishing = false,
+		_destroyed = false,
+		_progress = 0,
+		_duration = math.max(tonumber(config.LoadingDuration) or DEFAULT_LOADING_DURATION, 0.35),
+		_stages = normalizeLoadingStages(config.LoadingStages),
+		_onComplete = config.LoadingCallback,
+		_animateWindow = config.AnimateOnStart ~= false,
+	}, LoadingController)
+
+	if not self._enabled then
+		return self
+	end
+
+	local accentColor = config.LoadingColor or Theme.Accent
+	local overlay = create("CanvasGroup", {
+		Name = "LoadingScreen",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Color3.fromRGB(8, 8, 8),
+		BorderSizePixel = 0,
+		GroupTransparency = 0,
+		Visible = true,
+		Active = true,
+		ZIndex = 300,
+		Parent = screenGui,
+	})
+	self._maid:Give(overlay)
+	addGradient(overlay, Color3.fromRGB(17, 17, 17), Color3.fromRGB(6, 6, 6), 115)
+
+	local glowTop = create("Frame", {
+		Name = "TopGlow",
+		Position = UDim2.new(0.5, -180, 0.5, -154),
+		Size = UDim2.fromOffset(360, 90),
+		BackgroundColor3 = accentColor,
+		BackgroundTransparency = 0.9,
+		BorderSizePixel = 0,
+		ZIndex = 301,
+		Parent = overlay,
+	})
+	addCorner(glowTop, 45)
+	addGradient(glowTop, accentColor, Theme.Background, 90)
+
+	local card = create("Frame", {
+		Name = "LoadingCard",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.new(0.86, 0, 0, LOADING_CARD_HEIGHT),
+		BackgroundColor3 = Theme.PanelAlt,
+		BorderSizePixel = 0,
+		ClipsDescendants = false,
+		ZIndex = 302,
+		Parent = overlay,
+	})
+	addCorner(card, WINDOW_CORNER_RADIUS)
+	addGradient(card, Color3.fromRGB(29, 29, 29), Color3.fromRGB(17, 17, 17), 120)
+	addInsetStroke(card, WINDOW_CORNER_RADIUS, Theme.Outline, 0.42, 2, 303)
+	create("UISizeConstraint", {
+		MinSize = Vector2.new(300, LOADING_CARD_HEIGHT),
+		MaxSize = Vector2.new(LOADING_CARD_WIDTH, LOADING_CARD_HEIGHT),
+		Parent = card,
+	})
+	local cardScale = create("UIScale", {
+		Scale = 0.96,
+		Parent = card,
+	})
+
+	local iconBadge = create("Frame", {
+		Name = "IconBadge",
+		Position = UDim2.fromOffset(24, 24),
+		Size = UDim2.fromOffset(54, 54),
+		BackgroundColor3 = accentColor,
+		BorderSizePixel = 0,
+		ZIndex = 304,
+		Parent = card,
+	})
+	addCorner(iconBadge, 27)
+	addStroke(iconBadge, Theme.AccentHover, 0.38, 2)
+	addGradient(iconBadge, accentColor, Theme.AccentSoft, 135)
+
+	local loadingIcon = makeIcon(iconBadge, {
+		Icon = config.LoadingIcon or "loader-circle",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(25, 25),
+		Color = Theme.Text,
+		ZIndex = 305,
+	})
+
+	makeTextLabel(card, {
+		Position = UDim2.fromOffset(94, 23),
+		Size = UDim2.new(1, -118, 0, 17),
+		Font = Enum.Font.GothamBold,
+		Text = "SPOTIFY UI LIBRARY",
+		TextColor3 = accentColor,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 10,
+		ZIndex = 304,
+	})
+	makeTextLabel(card, {
+		Position = UDim2.fromOffset(94, 42),
+		Size = UDim2.new(1, -118, 0, 28),
+		Font = Enum.Font.GothamBold,
+		Text = tostring(config.LoadingTitle or config.Title or "Spotify UI"),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 20,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 304,
+	})
+	makeTextLabel(card, {
+		Position = UDim2.fromOffset(94, 68),
+		Size = UDim2.new(1, -118, 0, 18),
+		Text = tostring(config.LoadingSubtitle or "By @spectronal"),
+		TextColor3 = Theme.Subtext,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 11,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 304,
+	})
+
+	create("Frame", {
+		Position = UDim2.fromOffset(24, 100),
+		Size = UDim2.new(1, -48, 0, 1),
+		BackgroundColor3 = Theme.Divider,
+		BackgroundTransparency = 0.32,
+		BorderSizePixel = 0,
+		ZIndex = 304,
+		Parent = card,
+	})
+
+	local statusLabel = makeTextLabel(card, {
+		Position = UDim2.fromOffset(24, 117),
+		Size = UDim2.new(1, -104, 0, 18),
+		Font = Enum.Font.GothamMedium,
+		Text = tostring(config.LoadingText or "Preparing interface"),
+		TextColor3 = Theme.Subtext,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 11,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 304,
+	})
+	local percentageLabel = makeTextLabel(card, {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, -24, 0, 117),
+		Size = UDim2.fromOffset(58, 18),
+		Font = Enum.Font.GothamBold,
+		Text = "0%",
+		TextColor3 = Theme.Text,
+		TextXAlignment = Enum.TextXAlignment.Right,
+		TextSize = 11,
+		ZIndex = 304,
+	})
+
+	local track = create("Frame", {
+		Position = UDim2.fromOffset(24, 145),
+		Size = UDim2.new(1, -48, 0, 7),
+		BackgroundColor3 = Theme.Track,
+		BackgroundTransparency = 0.25,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 304,
+		Parent = card,
+	})
+	addCorner(track, 4)
+	local fill = create("Frame", {
+		Size = UDim2.fromScale(0, 1),
+		BackgroundColor3 = accentColor,
+		BorderSizePixel = 0,
+		ZIndex = 305,
+		Parent = track,
+	})
+	addCorner(fill, 4)
+	addGradient(fill, accentColor, Theme.AccentHover, 0)
+
+	local shine = create("Frame", {
+		AnchorPoint = Vector2.new(1, 0),
+		Position = UDim2.new(1, 0, 0, 0),
+		Size = UDim2.fromOffset(34, 7),
+		BackgroundColor3 = Theme.Text,
+		BackgroundTransparency = 0.72,
+		BorderSizePixel = 0,
+		ZIndex = 306,
+		Parent = fill,
+	})
+	addCorner(shine, 4)
+	addGradient(shine, Color3.fromRGB(255, 255, 255), accentColor, 0)
+
+	makeTextLabel(card, {
+		Position = UDim2.fromOffset(24, 168),
+		Size = UDim2.new(1, -48, 0, 22),
+		Text = "Loading components, animations, and native controllers",
+		TextColor3 = Theme.Muted,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 10,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 304,
+	})
+
+	local progressValue = create("NumberValue", {
+		Name = "LoadingProgress",
+		Value = 0,
+	})
+	self._maid:Give(progressValue)
+	self._maid:Give(progressValue:GetPropertyChangedSignal("Value"):Connect(function()
+		local progress = math.clamp(progressValue.Value, 0, 1)
+		self._progress = progress
+		fill.Size = UDim2.fromScale(progress, 1)
+		percentageLabel.Text = string.format("%d%%", math.floor(progress * 100 + 0.5))
+	end))
+
+	self._overlay = overlay
+	self._card = card
+	self._cardScale = cardScale
+	self._icon = loadingIcon
+	self._statusLabel = statusLabel
+	self._percentageLabel = percentageLabel
+	self._progressValue = progressValue
+	self._fill = fill
+	return self
+end
+
+function LoadingController:IsEnabled()
+	return self._enabled == true
+end
+
+function LoadingController:IsRunning()
+	return self._running == true and not self._destroyed
+end
+
+function LoadingController:GetProgress()
+	return self._progress or 0
+end
+
+function LoadingController:SetStatus(text)
+	if self._statusLabel then
+		self._statusLabel.Text = tostring(text or "Loading")
+	end
+	return self
+end
+
+function LoadingController:SetProgress(progress, status)
+	if self._destroyed then
+		return self
+	end
+	if status ~= nil then
+		self:SetStatus(status)
+	end
+	local normalized = math.clamp(tonumber(progress) or 0, 0, 1)
+	if self._progressValue then
+		self._progressValue.Value = normalized
+	else
+		self._progress = normalized
+	end
+	return self
+end
+
+function LoadingController:_cancelActiveTween()
+	if self._activeProgressTween then
+		self._activeProgressTween:Cancel()
+		self._activeProgressTween = nil
+	end
+end
+
+function LoadingController:_tweenProgress(target, duration)
+	self:_cancelActiveTween()
+	if not self._progressValue then
+		return false
+	end
+	local tween =
+		playTween(self._progressValue, TweenInfo.new(duration, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+			Value = math.clamp(target, 0, 1),
+		})
+	self._activeProgressTween = tween
+	local playbackState = tween.Completed:Wait()
+	if self._activeProgressTween == tween then
+		self._activeProgressTween = nil
+	end
+	return playbackState ~= Enum.PlaybackState.Cancelled
+end
+
+function LoadingController:Play()
+	if self._destroyed or self._running then
+		return self
+	end
+	if not self._enabled then
+		self._window:SetVisible(true, not self._animateWindow)
+		return self
+	end
+
+	self._window:SetVisible(false, true)
+	self._running = true
+	self._finishing = false
+	self:SetProgress(0, "Preparing interface")
+	self._overlay.Visible = true
+	self._overlay.GroupTransparency = 0
+	self._cardScale.Scale = 0.96
+	playTween(self._cardScale, POP_TWEEN_INFO, { Scale = 1 })
+
+	self._animationMaid:Cleanup()
+	self._animationMaid = Maid.new()
+	self._animationMaid:Give(RunService.RenderStepped:Connect(function(deltaTime)
+		if self._icon and self._icon.Parent then
+			self._icon.Rotation = (self._icon.Rotation + deltaTime * 115) % 360
+		end
+	end))
+
+	task.spawn(function()
+		local previousProgress = 0
+		for _, stage in ipairs(self._stages) do
+			if self._destroyed or not self._running then
+				return
+			end
+			self:SetStatus(stage.Text)
+			local distance = math.max(stage.Progress - previousProgress, 0.01)
+			local stageDuration = math.max(self._duration * distance, 0.08)
+			if not self:_tweenProgress(stage.Progress, stageDuration) then
+				return
+			end
+			previousProgress = stage.Progress
+			task.wait(0.035)
+		end
+		if not self._destroyed and self._running then
+			self:Finish(false)
+		end
+	end)
+	return self
+end
+
+function LoadingController:Finish(instant)
+	if self._destroyed or self._finishing then
+		return self
+	end
+	if not self._enabled then
+		self._window:SetVisible(true, instant == true or not self._animateWindow)
+		return self
+	end
+
+	self._finishing = true
+	self._running = false
+	self:_cancelActiveTween()
+	self:SetProgress(1, "Ready")
+	self._window:SetVisible(true, instant == true or not self._animateWindow)
+
+	local function complete()
+		if self._destroyed then
+			return
+		end
+		self._overlay.Visible = false
+		self._overlay.GroupTransparency = 1
+		self._animationMaid:Cleanup()
+		self._finishing = false
+		safeCallback(self._onComplete, self._window)
+	end
+
+	if instant == true or not self._window._animationsEnabled then
+		complete()
+		return self
+	end
+
+	local overlayTween =
+		playTween(self._overlay, TweenInfo.new(0.32, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+			GroupTransparency = 1,
+		})
+	playTween(self._cardScale, TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
+		Scale = 0.975,
+	})
+	local connection
+	connection = overlayTween.Completed:Connect(function()
+		if connection then
+			connection:Disconnect()
+		end
+		complete()
+	end)
+	self._maid:Give(connection)
+	return self
+end
+
+function LoadingController:Destroy()
+	if self._destroyed then
+		return
+	end
+	self._destroyed = true
+	self._running = false
+	self:_cancelActiveTween()
+	self._animationMaid:Cleanup()
+	self._maid:Cleanup()
+	self._window = nil
+end
+
 function WindowMethods:_clearSearchResultsInternal()
 	if self._searchResultsMaid then
 		self._searchResultsMaid:Cleanup()
@@ -3079,6 +3576,28 @@ function WindowMethods:SetTitle(title, subtitle)
 	self._titleLabel.Text = tostring(title or "Spotify UI")
 	if subtitle ~= nil then
 		self._subtitleLabel.Text = tostring(subtitle)
+	end
+	return self
+end
+
+function WindowMethods:GetLoadingController()
+	return self._loadingController
+end
+
+function WindowMethods:IsLoading()
+	return self._loadingController ~= nil and self._loadingController:IsRunning()
+end
+
+function WindowMethods:SetLoadingProgress(progress, status)
+	if self._loadingController then
+		self._loadingController:SetProgress(progress, status)
+	end
+	return self
+end
+
+function WindowMethods:FinishLoading(instant)
+	if self._loadingController then
+		self._loadingController:Finish(instant)
 	end
 	return self
 end
@@ -3930,19 +4449,28 @@ function WindowMethods:Notify(config)
 		return nil
 	end
 
+	local notificationType, style = resolveNotificationStyle(config)
 	local toastMaid = Maid.new()
 	local rootTaskId = self._maid:Give(toastMaid)
 	local dismissed = false
-	local duration = math.max(tonumber(config.Duration) or 4, 0.5)
-	local toastHeight = config.Title and 96 or 78
+	local paused = false
+	local remaining = math.max(tonumber(config.Duration) or 4.5, 0.5)
+	local duration = remaining
+	local persistent = config.Persistent == true
+	local actionText = config.ActionText and tostring(config.ActionText) or nil
+	local actionCallback = config.ActionCallback or config.Callback
+	local titleText = tostring(config.Title or style.Title)
+	local contentText = tostring(config.Content or config.Text or "Notification")
+	local toastHeight = actionText and 126 or 104
+	local camera = Workspace.CurrentCamera
+	local viewportWidth = camera and camera.ViewportSize.X or 1280
+	local toastWidth = math.clamp(viewportWidth - 36, 280, NOTIFICATION_WIDTH)
 
 	self._notificationCounter += 1
 
-	-- The layout moves only the slot. The notification animates inside it, so the
-	-- UIListLayout never competes with the tweens for the Position property.
 	local slot = create("Frame", {
 		Name = "NotificationSlot",
-		Size = UDim2.fromOffset(326, toastHeight + 8),
+		Size = UDim2.fromOffset(toastWidth, toastHeight + 12),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -3952,12 +4480,9 @@ function WindowMethods:Notify(config)
 	})
 	toastMaid:Give(slot)
 
-	-- Transparent CanvasGroup used only for position and opacity animation.
-	-- The visual surface stays separate, preventing ClipsDescendants from clipping
-	-- the UIStroke or turning rounded corners into square corners.
 	local toast = create("CanvasGroup", {
 		Name = "Notification",
-		Position = UDim2.fromOffset(30, 0),
+		Position = UDim2.fromOffset(34, 0),
 		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
@@ -3966,127 +4491,206 @@ function WindowMethods:Notify(config)
 		ZIndex = 202,
 		Parent = slot,
 	})
+	local toastScale = create("UIScale", {
+		Scale = 0.965,
+		Parent = toast,
+	})
 
 	local shadow = create("Frame", {
 		Name = "Shadow",
-		Position = UDim2.fromOffset(3, 6),
-		Size = UDim2.new(1, -6, 1, -8),
+		Position = UDim2.fromOffset(4, 7),
+		Size = UDim2.new(1, -8, 1, -12),
 		BackgroundColor3 = Theme.Shadow,
-		BackgroundTransparency = 0.52,
+		BackgroundTransparency = 0.42,
 		BorderSizePixel = 0,
 		ZIndex = 202,
 		Parent = toast,
 	})
-	addCorner(shadow, PANEL_CORNER_RADIUS + 1)
+	addCorner(shadow, NOTIFICATION_CORNER_RADIUS + 2)
 
 	local surface = create("Frame", {
 		Name = "Surface",
-		Position = UDim2.fromOffset(3, 2),
-		Size = UDim2.new(1, -6, 1, -8),
-		BackgroundColor3 = Theme.Sidebar,
-		BackgroundTransparency = 0,
+		Position = UDim2.fromOffset(4, 2),
+		Size = UDim2.new(1, -8, 1, -12),
+		BackgroundColor3 = Theme.PanelAlt,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
+		Active = true,
 		ZIndex = 203,
 		Parent = toast,
 	})
-	addCorner(surface, PANEL_CORNER_RADIUS)
-	addGradient(surface, Color3.fromRGB(27, 27, 27), Color3.fromRGB(18, 18, 18), 90)
-	addStroke(surface, Theme.Stroke, 0.18, 2)
+	addCorner(surface, NOTIFICATION_CORNER_RADIUS)
+	addGradient(surface, Color3.fromRGB(31, 31, 31), Color3.fromRGB(17, 17, 17), 120)
+	local surfaceStroke = addInsetStroke(surface, NOTIFICATION_CORNER_RADIUS, style.Color, 0.48, 2, 204)
 
-	local accent = create("Frame", {
-		Position = UDim2.fromOffset(10, 12),
-		Size = UDim2.new(0, 3, 1, -24),
-		BackgroundColor3 = config.Color or Theme.Accent,
+	local accentGlow = create("Frame", {
+		Name = "AccentGlow",
+		Position = UDim2.fromOffset(14, 14),
+		Size = UDim2.fromOffset(42, 42),
+		BackgroundColor3 = style.SoftColor,
+		BackgroundTransparency = 0.08,
 		BorderSizePixel = 0,
-		ZIndex = 204,
+		ZIndex = 205,
 		Parent = surface,
 	})
-	addCorner(accent, 2)
+	addCorner(accentGlow, 21)
+	addStroke(accentGlow, style.Color, 0.46, 2)
 
-	local y = 12
-	if config.Title then
-		makeTextLabel(surface, {
-			Position = UDim2.fromOffset(24, y),
-			Size = UDim2.new(1, -62, 0, 20),
-			Font = Enum.Font.GothamBold,
-			Text = tostring(config.Title),
-			TextXAlignment = Enum.TextXAlignment.Left,
-			TextSize = 14,
-			TextTruncate = Enum.TextTruncate.AtEnd,
-			ZIndex = 205,
-		})
-		y = 38
-	end
+	local statusIcon = makeIcon(accentGlow, {
+		Icon = style.Icon,
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(20, 20),
+		Color = style.Color,
+		ZIndex = 206,
+	})
 
-	makeTextLabel(surface, {
-		Position = UDim2.fromOffset(24, y),
-		Size = UDim2.new(1, -62, 0, config.Title and 38 or 44),
-		Text = tostring(config.Content or config.Text or "Notification"),
+	local typeLabel = makeTextLabel(surface, {
+		Position = UDim2.fromOffset(68, 13),
+		Size = UDim2.new(1, -116, 0, 14),
+		Font = Enum.Font.GothamBold,
+		Text = string.upper(notificationType),
+		TextColor3 = style.Color,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 9,
+		ZIndex = 205,
+	})
+	local titleLabel = makeTextLabel(surface, {
+		Position = UDim2.fromOffset(68, 28),
+		Size = UDim2.new(1, -116, 0, 21),
+		Font = Enum.Font.GothamBold,
+		Text = titleText,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 14,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 205,
+	})
+	local contentLabel = makeTextLabel(surface, {
+		Position = UDim2.fromOffset(68, 51),
+		Size = actionText and UDim2.new(1, -220, 0, 48) or UDim2.new(1, -92, 0, 38),
+		Text = contentText,
 		TextColor3 = Theme.Subtext,
 		TextXAlignment = Enum.TextXAlignment.Left,
 		TextYAlignment = Enum.TextYAlignment.Top,
-		TextSize = 12,
+		TextSize = 11,
 		TextWrapped = true,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 205,
 	})
 
 	local closeButton = makeTextButton(surface, {
-		Position = UDim2.new(1, -36, 0, 8),
-		Size = UDim2.fromOffset(28, 28),
-		BackgroundTransparency = 1,
+		Position = UDim2.new(1, -38, 0, 8),
+		Size = UDim2.fromOffset(30, 30),
+		BackgroundColor3 = Theme.Card,
+		BackgroundTransparency = 0.45,
 		Text = "",
-		ZIndex = 207,
+		ZIndex = 208,
 	})
+	addCorner(closeButton, 15)
+	local closeStroke = addStroke(closeButton, Theme.Stroke, 0.78, 2)
 	local closeIcon = makeIcon(closeButton, {
 		Icon = "x",
 		AnchorPoint = Vector2.new(0.5, 0.5),
 		Position = UDim2.fromScale(0.5, 0.5),
-		Size = UDim2.fromOffset(14, 14),
+		Size = UDim2.fromOffset(13, 13),
 		Color = Theme.Subtext,
-		ZIndex = 208,
+		ZIndex = 209,
 	})
+
+	local actionButton
+	if actionText then
+		actionButton = makeTextButton(surface, {
+			AnchorPoint = Vector2.new(1, 1),
+			Position = UDim2.new(1, -14, 1, -18),
+			Size = UDim2.fromOffset(math.clamp(#actionText * 8 + 32, 82, 142), 30),
+			BackgroundColor3 = style.Color,
+			Text = actionText,
+			TextColor3 = notificationType == "Warning" and Theme.Background or Theme.Text,
+			TextSize = 11,
+			ZIndex = 208,
+		})
+		addCorner(actionButton, 15)
+		addStroke(actionButton, style.Color, 0.28, 2)
+	end
 
 	local progressTrack = create("Frame", {
 		AnchorPoint = Vector2.new(0, 1),
-		Position = UDim2.new(0, 12, 1, -9),
-		Size = UDim2.new(1, -24, 0, 2),
+		Position = UDim2.new(0, 14, 1, -10),
+		Size = UDim2.new(1, -28, 0, 3),
 		BackgroundColor3 = Theme.Track,
-		BackgroundTransparency = 0.55,
+		BackgroundTransparency = persistent and 1 or 0.52,
 		BorderSizePixel = 0,
+		ClipsDescendants = true,
 		ZIndex = 205,
 		Parent = surface,
 	})
-	addCorner(progressTrack, 1)
-
+	addCorner(progressTrack, 2)
 	local progress = create("Frame", {
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = config.Color or Theme.Accent,
+		BackgroundColor3 = style.Color,
+		BackgroundTransparency = persistent and 1 or 0,
 		BorderSizePixel = 0,
 		ZIndex = 206,
 		Parent = progressTrack,
 	})
-	addCorner(progress, 1)
+	addCorner(progress, 2)
+	addGradient(progress, style.Color, style.Color:Lerp(Theme.Text, 0.22), 0)
 
-	local function dismiss()
+	local api = {}
+	local timerConnection
+	local function dismiss(reason)
 		if dismissed then
 			return
 		end
 		dismissed = true
-
+		if timerConnection then
+			timerConnection:Disconnect()
+			timerConnection = nil
+		end
 		local tween = playTween(toast, FADE_TWEEN_INFO, {
 			GroupTransparency = 1,
-			Position = UDim2.fromOffset(30, 0),
+			Position = UDim2.fromOffset(42, 0),
 		})
+		playTween(toastScale, FAST_TWEEN_INFO, { Scale = 0.965 })
 		toastMaid:Give(tween)
-		toastMaid:Give(tween.Completed:Connect(function()
+		local connection
+		connection = tween.Completed:Connect(function()
+			if connection then
+				connection:Disconnect()
+			end
 			self._maid:Forget(rootTaskId)
-			toastMaid:Cleanup()
-		end))
+			task.defer(function()
+				toastMaid:Cleanup()
+			end)
+			safeCallback(config.OnDismiss, reason or "Dismissed")
+		end)
+		toastMaid:Give(connection)
 	end
 
-	toastMaid:Give(closeButton.MouseButton1Click:Connect(dismiss))
+	function api:Dismiss()
+		dismiss("Manual")
+	end
+	function api:IsDismissed()
+		return dismissed
+	end
+	function api:SetTitle(value)
+		titleLabel.Text = tostring(value)
+	end
+	function api:SetContent(value)
+		contentLabel.Text = tostring(value)
+	end
+
+	bindInteractiveSurface(closeButton, toastMaid, closeButton, closeStroke, nil, {
+		NormalColor = Theme.Card,
+		HoverColor = Theme.CardHover,
+		PressedColor = Theme.Danger,
+		StrokeTransparency = 0.78,
+		HoverStrokeTransparency = 0.4,
+		HoverStrokeColor = Theme.Danger,
+	})
+	toastMaid:Give(closeButton.MouseButton1Click:Connect(function()
+		dismiss("CloseButton")
+	end))
 	toastMaid:Give(closeButton.MouseEnter:Connect(function()
 		setIconColor(closeIcon, Theme.Text, FAST_TWEEN_INFO)
 	end))
@@ -4094,18 +4698,65 @@ function WindowMethods:Notify(config)
 		setIconColor(closeIcon, Theme.Subtext, FAST_TWEEN_INFO)
 	end))
 
+	if actionButton then
+		toastMaid:Give(actionButton.MouseEnter:Connect(function()
+			playTween(actionButton, FAST_TWEEN_INFO, { BackgroundColor3 = style.Color:Lerp(Theme.Text, 0.12) })
+		end))
+		toastMaid:Give(actionButton.MouseLeave:Connect(function()
+			playTween(actionButton, FAST_TWEEN_INFO, { BackgroundColor3 = style.Color })
+		end))
+		toastMaid:Give(actionButton.MouseButton1Click:Connect(function()
+			safeCallback(actionCallback, api)
+			if config.CloseOnAction ~= false then
+				dismiss("Action")
+			end
+		end))
+	end
+
+	toastMaid:Give(surface.MouseEnter:Connect(function()
+		paused = true
+		playTween(surfaceStroke, FAST_TWEEN_INFO, {
+			Color = style.Color,
+			Transparency = 0.22,
+		})
+		playTween(accentGlow, FAST_TWEEN_INFO, {
+			BackgroundTransparency = 0,
+		})
+		setIconColor(statusIcon, style.Color:Lerp(Theme.Text, 0.16), FAST_TWEEN_INFO)
+	end))
+	toastMaid:Give(surface.MouseLeave:Connect(function()
+		paused = false
+		playTween(surfaceStroke, FAST_TWEEN_INFO, {
+			Color = style.Color,
+			Transparency = 0.48,
+		})
+		playTween(accentGlow, FAST_TWEEN_INFO, {
+			BackgroundTransparency = 0.08,
+		})
+		setIconColor(statusIcon, style.Color, FAST_TWEEN_INFO)
+	end))
+
+	if not persistent then
+		timerConnection = RunService.Heartbeat:Connect(function(deltaTime)
+			if dismissed or paused then
+				return
+			end
+			remaining = math.max(remaining - deltaTime, 0)
+			progress.Size = UDim2.fromScale(remaining / duration, 1)
+			if remaining <= 0 then
+				dismiss("Timeout")
+			end
+		end)
+		toastMaid:Give(timerConnection)
+	end
+
 	toastMaid:Give(playTween(toast, POP_TWEEN_INFO, {
 		GroupTransparency = 0,
 		Position = UDim2.fromOffset(0, 0),
 	}))
-	toastMaid:Give(playTween(progress, TweenInfo.new(duration, Enum.EasingStyle.Linear), {
-		Size = UDim2.new(0, 0, 1, 0),
-	}))
-	toastMaid:Give(task.delay(duration, dismiss))
+	toastMaid:Give(playTween(toastScale, POP_TWEEN_INFO, { Scale = 1 }))
 
-	return {
-		Dismiss = dismiss,
-	}
+	return api
 end
 
 function WindowMethods:Destroy()
@@ -5176,6 +5827,8 @@ function Library:CreateWindow(config)
 		Parent = settingsHero,
 	})
 
+	addCorner(settingsGameIcon, 12)
+
 	local settingsHeroOverlay = create("Frame", {
 		Size = UDim2.fromScale(1, 1),
 		BackgroundColor3 = Theme.Shadow,
@@ -5575,6 +6228,7 @@ function Library:CreateWindow(config)
 		_searchResultsMaid = Maid.new(),
 		_searchEnabled = config.ShowSearch ~= false,
 		_searchController = nil,
+		_loadingController = nil,
 		_searchBarWidth = initialSearchWidth,
 		_maxSearchResults = math.max(tonumber(config.MaxSearchResults) or DEFAULT_SEARCH_RESULTS, 1),
 		_pageContainer = pageContainer,
@@ -5685,6 +6339,10 @@ function Library:CreateWindow(config)
 			end
 		end
 	end)
+
+	local loadingController = LoadingController.new(window, screenGui, config)
+	window._loadingController = loadingController
+	maid:Give(loadingController)
 
 	local searchController = SearchController.new(window, {
 		Container = searchContainer,
@@ -5943,6 +6601,7 @@ function Library:CreateWindow(config)
 
 		if
 			window._activeKeybindPicker ~= nil
+			or (window._loadingController and window._loadingController:IsRunning())
 			or gameProcessedEvent
 			or UserInputService:GetFocusedTextBox() ~= nil
 			or input.UserInputType ~= Enum.UserInputType.Keyboard
@@ -6006,7 +6665,12 @@ function Library:CreateWindow(config)
 	window._miniScaleLabel.Text = initialScaleText
 	window:_syncWindowLayers()
 	window:_bindCurrentCamera()
-	window:SetVisible(true, config.AnimateOnStart == false)
+	if loadingController:IsEnabled() then
+		window:_setLayerVisibility(false)
+		loadingController:Play()
+	else
+		window:SetVisible(true, config.AnimateOnStart == false)
+	end
 
 	self._windows[window] = true
 	self._lastWindow = window

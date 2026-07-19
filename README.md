@@ -4,7 +4,7 @@
 
 A polished Roblox UI library written in Luau, inspired by Spotify's desktop and mobile interfaces.
 
-![Version](https://img.shields.io/badge/version-2.0.1-1DB954?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-2.1.0-1DB954?style=for-the-badge)
 ![Language](https://img.shields.io/badge/Luau-Roblox-00A2FF?style=for-the-badge)
 ![Theme](https://img.shields.io/badge/theme-Spotify-121212?style=for-the-badge)
 
@@ -12,7 +12,30 @@ A polished Roblox UI library written in Luau, inspired by Spotify's desktop and 
 
 ## Update logs
 
-### v2.0.1
+### v2.1.0
+
+#### Added
+
+- Spotify-inspired loading screen with animated progress, rotating Lucide icon, status stages, custom title, and `By @spectronal` subtitle.
+- First-class `LoadingController` with progress, status, running-state, and finish APIs.
+- Notification types: `Success`, `Info`, `Warning`, and `Error`.
+- Optional notification action button, persistent notifications, dismiss reasons, and mutable title/content APIs.
+
+#### Changed
+
+- Notifications were fully redesigned with a status icon badge, type label, richer depth, inset outline, hover feedback, and a smoother slide/pop transition.
+- Notification timers now pause while hovered, making longer messages and actions easier to use.
+- Toast width adapts to narrow viewports while preserving the bottom-right stack.
+- The main window is revealed only after the loading screen completes, preventing partially rendered interface states.
+
+#### Fixed
+
+- Loading blocks the global keybind until the interface is ready.
+- Loading-owned tweens, render connections, and temporary instances are cleaned with the window lifecycle.
+- Notification timeout connections are disconnected as soon as a toast is dismissed.
+
+<details>
+<summary><strong>v2.0.1</strong></summary>
 
 #### Fixed
 
@@ -32,6 +55,8 @@ A polished Roblox UI library written in Luau, inspired by Spotify's desktop and 
 #### Compatibility
 
 - `SetIconProvider`, `GetIconProvider`, and the `IconProvider` window option remain available as aliases.
+
+</details>
 
 <details>
 <summary><strong>v2.0.0</strong></summary>
@@ -95,7 +120,8 @@ A polished Roblox UI library written in Luau, inspired by Spotify's desktop and 
 - Right-side Settings panel inspired by Spotify's Now Playing panel.
 - Draggable mini player in the bottom-right corner.
 - Experience information and session timeline.
-- Bottom-right toast notifications.
+- Rich bottom-right toast notifications with types, actions, hover-paused timers, and persistent mode.
+- Animated Spotify-style loading screen with a native loading controller.
 - Centralized cleanup for connections, tweens, tasks, and temporary instances.
 - Every `UIStroke` uses `Thickness = 2`.
 
@@ -148,6 +174,10 @@ local Window = Library:CreateWindow({
     ShowNowPlaying = true,
     ShowSessionTimer = true,
     SessionTimerDuration = 3600,
+    ShowLoading = true,
+    LoadingTitle = "Spotify UI",
+    LoadingSubtitle = "By @spectronal",
+    LoadingDuration = 1.8,
 })
 
 local Home = Window:CreateTab({
@@ -162,8 +192,10 @@ General:CreateButton({
     Description = "Displays a toast notification.",
     Callback = function()
         Window:Notify({
+            Type = "Success",
             Title = "Done",
             Content = "The action completed successfully.",
+            Duration = 4.5,
         })
     end,
 })
@@ -212,6 +244,15 @@ General:CreateDropdown({
 | `ShowSessionTimer` | `boolean` | `true` | Shows the session timeline. |
 | `SessionTimerDuration` | `number/false` | `3600` | Visual timeline duration. Use `false` for no limit. |
 | `Minimized` | `boolean` | `false` | Starts in mini-player mode. |
+| `ShowLoading` | `boolean` | `true` | Shows the animated loading screen before revealing the window. |
+| `LoadingTitle` | `string` | Window title | Main loading-screen title. |
+| `LoadingSubtitle` | `string` | `By @spectronal` | Small creator line below the title. |
+| `LoadingText` | `string` | `Preparing interface` | Initial loading status. |
+| `LoadingDuration` | `number` | `1.8` | Approximate automatic loading animation duration. |
+| `LoadingIcon` | `string` | `loader-circle` | Lucide icon used by the loading animation. |
+| `LoadingColor` | `Color3` | Theme accent | Loading-screen accent color. |
+| `LoadingStages` | `table` | Built-in stages | Custom `{ Progress, Text }` loading stages. |
+| `LoadingCallback` | `function` | `nil` | Runs after the loading screen finishes. |
 | `LoadLucide` | `boolean` | `true` | Automatically loads Lucide. |
 | `LucideUrl` | `string` | `Library.LucideUrl` | Custom Lucide source URL. |
 | `Lucide` | `table` | `nil` | Table returned by the lucide-roblox loadstring. |
@@ -403,18 +444,87 @@ Window:ResetSessionTimer()
 Window:SetSessionTimerVisible(false)
 ```
 
-## Notifications
+## Loading screen
+
+The loading screen is enabled by default and runs without blocking the rest of your LocalScript. Tabs and components can be created normally while the loading animation is visible.
 
 ```lua
-Window:Notify({
-    Title = "Saved",
-    Content = "Your settings were saved.",
-    Duration = 4,
-    Color = Library.Theme.Accent,
+local Window = Library:CreateWindow({
+    Title = "My Menu",
+    ShowLoading = true,
+    LoadingTitle = "Spotify UI",
+    LoadingSubtitle = "By @spectronal",
+    LoadingText = "Preparing interface",
+    LoadingDuration = 1.8,
+    LoadingIcon = "loader-circle",
+    LoadingStages = {
+        { Progress = 0.25, Text = "Loading assets" },
+        { Progress = 0.6, Text = "Building interface" },
+        { Progress = 0.9, Text = "Connecting interactions" },
+        { Progress = 1, Text = "Ready" },
+    },
 })
 ```
 
-Notifications appear in the bottom-right corner and stack upward.
+The controller can also be accessed directly:
+
+```lua
+local Loading = Window:GetLoadingController()
+
+print(Window:IsLoading())
+Window:SetLoadingProgress(0.75, "Almost ready")
+Window:FinishLoading()
+
+-- Equivalent direct controller calls:
+Loading:SetStatus("Finalizing")
+Loading:SetProgress(0.9)
+Loading:Finish()
+```
+
+Set `ShowLoading = false` to reveal the window immediately.
+
+## Notifications
+
+Notifications support four built-in visual types: `Success`, `Info`, `Warning`, and `Error`.
+
+```lua
+Window:Notify({
+    Type = "Success",
+    Title = "Saved",
+    Content = "Your settings were saved successfully.",
+    Duration = 4.5,
+})
+```
+
+Add an action when the player should be able to respond directly from the toast:
+
+```lua
+Window:Notify({
+    Type = "Warning",
+    Title = "Changes not applied",
+    Content = "Your graphics settings are still pending.",
+    ActionText = "Apply",
+    ActionCallback = function(notification)
+        print("Settings applied")
+    end,
+})
+```
+
+Persistent notifications remain visible until dismissed:
+
+```lua
+local Notification = Window:Notify({
+    Type = "Info",
+    Title = "Background task",
+    Content = "Waiting for a server response...",
+    Persistent = true,
+})
+
+Notification:SetContent("The server responded.")
+Notification:Dismiss()
+```
+
+Additional options include `Icon`, `Color`, `SoftColor`, `CloseOnAction`, and `OnDismiss`. Timed notifications pause while hovered. All notifications appear in the bottom-right corner and stack upward.
 
 ## Cleanup
 

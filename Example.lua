@@ -4,70 +4,73 @@ local Library =
 	loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/Source.lua"))()
 
 local Window = Library:CreateWindow({
-	Title = "My Menu",
-	Subtitle = "Spotify UI Library",
+	Title = "Spotify UI Example",
+	Subtitle = "Modern Roblox interface",
 	Size = Vector2.new(940, 590),
 	Scale = 1,
 	AutoScale = true,
 	Animations = true,
-	AnimateOnStart = true,
 	Keybind = Enum.KeyCode.RightShift,
-	Minimized = false,
-
-	-- lucide-roblox is loaded automatically from Library.LucideUrl.
-	-- Set LoadLucide = false to use built-in fallback glyphs.
-	LoadLucide = true,
-
 	ShowSearch = true,
 	SearchPlaceholder = "What do you want to find?",
-	MaxSearchResults = 6,
 	ShowNowPlaying = true,
 	ShowSessionTimer = true,
 	SessionTimerDuration = 3600,
-	SessionTimerText = "Time open",
-	-- CloseBehavior = "Destroy", -- Default: "Hide".
-	-- GameName = "Custom experience name",
-	-- GameCreator = "Custom creator",
-	-- GameIcon = "rbxassetid://0000000000",
+
+	ShowLoading = true,
+	LoadingTitle = "Spotify UI",
+	LoadingSubtitle = "By @spectronal",
+	LoadingText = "Preparing your interface",
+	LoadingDuration = 1.8,
+	LoadingIcon = "loader-circle",
 })
 
-local HomeTab = Window:CreateTab({
+local Home = Window:CreateTab({
 	Name = "Home",
-	Icon = "user",
+	Icon = "house",
 })
 
-local ControlsSection = HomeTab:CreateSection("Main controls")
+local General = Home:CreateSection("General")
 
-ControlsSection:CreateButton({
-	Text = "Open mini player",
-	Description = "Collapses the window into the compact player.",
-	Callback = function()
-		Window:SetMinimized(true)
-	end,
-})
-
-ControlsSection:CreateButton({
-	Text = "Click here",
-	Description = "Runs a simple callback.",
+General:CreateButton({
+	Text = "Show success notification",
+	Description = "Displays the redesigned notification toast.",
 	Callback = function()
 		Window:Notify({
-			Title = "All set",
-			Content = "The button was pressed.",
-			Duration = 3,
+			Type = "Success",
+			Title = "Everything is ready",
+			Content = "The interface finished loading successfully.",
+			Duration = 4.5,
 		})
 	end,
 })
 
-ControlsSection:CreateToggle({
-	Text = "Music enabled",
-	Description = "Enables or disables the game's music.",
-	Default = true,
-	Callback = function(enabled)
-		print("Music:", enabled)
+General:CreateButton({
+	Text = "Show notification action",
+	Description = "Displays a warning with an action button.",
+	Callback = function()
+		Window:Notify({
+			Type = "Warning",
+			Title = "Pending changes",
+			Content = "Apply the new graphics settings now?",
+			ActionText = "Apply",
+			ActionCallback = function()
+				print("Settings applied")
+			end,
+		})
 	end,
 })
 
-ControlsSection:CreateSlider({
+General:CreateToggle({
+	Text = "Music enabled",
+	Description = "Enables or disables game music.",
+	Default = true,
+	Callback = function(enabled)
+		print("Music enabled:", enabled)
+	end,
+})
+
+General:CreateSlider({
 	Text = "Volume",
 	Min = 0,
 	Max = 100,
@@ -79,69 +82,28 @@ ControlsSection:CreateSlider({
 	end,
 })
 
-ControlsSection:CreateDropdown({
-	Text = "Quality",
-	Options = { "Low", "Medium", "High", "Ultra" },
-	Default = "High",
-	Callback = function(value)
-		print("Quality:", value)
-	end,
-})
-
-ControlsSection:CreateDropdown({
+General:CreateDropdown({
 	Text = "Visual effects",
 	Options = { "Bloom", "Shadows", "Particles", "Reflections" },
 	Multi = true,
 	Default = { "Bloom", "Shadows" },
 	Callback = function(selected)
-		print("Effects:", table.concat(selected, ", "))
+		print(table.concat(selected, ", "))
 	end,
 })
 
-ControlsSection:CreateInput({
-	Text = "Playlist name",
-	Placeholder = "My playlist...",
-	Callback = function(text, enterPressed)
-		print("Text:", text, "Enter:", enterPressed)
-	end,
-})
-
-local AboutTab = Window:CreateTab({
+local About = Window:CreateTab({
 	Name = "About",
 	Icon = "info",
 })
 
-AboutTab:CreateParagraph({
+About:CreateParagraph({
 	Title = "Spotify UI Library",
-	Content = "The window adapts to ViewportSize. Use the bottom scale controls, Window:SetScale(), or RightShift to hide and reopen the menu.",
+	Content = "A responsive Roblox UI library with Lucide icons, native search, loading animation, notifications, Settings panel, and mini player.",
 })
 
-AboutTab:CreateLabel({
+About:CreateLabel({
 	Text = "Version " .. Library.Version,
 	Bold = true,
 	Color = Library.Theme.AccentHover,
 })
-
--- Settings and its keybind picker are created automatically.
-local SettingsTab = Window:GetSettingsTab()
-SettingsTab:CreateLabel({
-	Text = "The shortcut is kept only for the current session.",
-	Color = Library.Theme.Subtext,
-})
-
--- Additional APIs:
--- Window:FocusSearch()
--- Window:SetSearchQuery("volume")
--- Window:SetSearchVisible(false)
--- Window:SetKeybind(Enum.KeyCode.F4)
--- Window:SetMinimized(true)
--- Window:ToggleMinimized()
--- Window:ResetMiniPlayerPosition()
--- Window:SetSettingsPanelVisible(true)
--- Window:SetGameInfo({ Name = "New name", Creator = "New creator" })
--- Window:SetNowPlayingVisible(false)
--- Window:SetSessionTimerVisible(false)
--- Window:ResetSessionTimer()
--- print(Window:GetSessionElapsed())
--- Window:SetScale(1.15)
--- Window:SetSize(1000, 640)
