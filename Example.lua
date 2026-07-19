@@ -33,7 +33,7 @@ local Window = Library:CreateWindow({
 
 local HomeTab = Window:CreateTab({
 	Name = "Home",
-	Icon = "house",
+	Icon = "user",
 })
 
 local ControlsSection = HomeTab:CreateSection("Main controls")

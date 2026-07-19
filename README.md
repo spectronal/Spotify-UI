@@ -112,30 +112,13 @@ local Window = Library:CreateWindow({
 
 ## Lucide icons
 
-The library uses the API documented by [`latte-soft/lucide-roblox`](https://github.com/latte-soft/lucide-roblox). The only difference is how the library is loaded: instead of `require`, Spotify UI evaluates the single-file build with the requested loader.
+Icons are powered by [Lucide](https://lucide.dev/). Grab any icon name straight from the site and pass it to `Icon`:
 
 ```lua
-local Lucide = loadstring(game:HttpGet(
-    "https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/Libs/Lucide.luau"
-))()
-```
+local Window = Library:CreateWindow({
+    Title = "My Menu",
+})
 
-Internally, every named icon is resolved with the official API:
-
-```lua
-local Asset = Lucide.GetAsset("server", 48)
-
-print(Asset.IconName)
-print(Asset.Url)
-print(Asset.ImageRectSize)
-print(Asset.ImageRectOffset)
-```
-
-Spotify UI applies `Asset.Url`, `Asset.ImageRectSize`, and `Asset.ImageRectOffset` to its own `ImageLabel`, which preserves the library's existing layout and tween system.
-
-Use Lucide identifiers directly:
-
-```lua
 local HomeTab = Window:CreateTab({
     Name = "Home",
     Icon = "house",
@@ -146,31 +129,6 @@ local SettingsTab = Window:CreateTab({
     Icon = "settings",
 })
 ```
-
-The identifiers must exist in `Lucide.IconNames`. Invalid names fall back to a readable glyph instead of breaking the interface.
-
-### Loading and injection
-
-Automatic loading is enabled by default:
-
-```lua
-local Window = Library:CreateWindow({
-    LoadLucide = true,
-    LucideUrl = Library.LucideUrl,
-})
-```
-
-You can load the same source yourself and inject the returned library:
-
-```lua
-local Lucide = loadstring(game:HttpGet(Library.LucideUrl))()
-Library:SetLucideLibrary(Lucide)
-
-local CurrentLucide = Library:GetLucideLibrary()
-local SearchAsset = Library:GetLucideAsset("search", 24)
-```
-
-`SetIconProvider` and `GetIconProvider` remain as compatibility aliases, but they now expect the actual lucide-roblox table rather than an arbitrary provider shape.
 
 ## Complete example
 
@@ -469,4 +427,4 @@ Destroying a component, tab, section, or window disconnects its registered event
 
 ## License
 
-Choose a license before publishing the repository publicly. Lucide icons are distributed under their own upstream license.
+MIT License
