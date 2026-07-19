@@ -13,6 +13,9 @@ local Window = Library:CreateWindow({
 	AnimateOnStart = true,
 	Keybind = Enum.KeyCode.RightShift,
 	Minimized = false,
+	ShowSearch = true,
+	SearchPlaceholder = "O que você quer encontrar?",
+	MaxSearchResults = 6,
 	ShowNowPlaying = true,
 	ShowSessionTimer = true,
 	SessionTimerDuration = 3600, -- Escala visual da barra: 1 hora.
@@ -120,6 +123,9 @@ SettingsTab:CreateLabel({
 })
 
 -- APIs adicionais:
+-- Window:FocusSearch()
+-- Window:SetSearchQuery("volume")
+-- Window:SetSearchVisible(false)
 -- Window:SetKeybind(Enum.KeyCode.F4)
 -- Window:SetMinimized(true)
 -- Window:ToggleMinimized()

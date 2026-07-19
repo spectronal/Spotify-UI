@@ -1,4 +1,4 @@
--- Spotify UI Library v1.8.0
+-- Spotify Library UI v1.9.0
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8,7 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Library = {
-	Version = "1.8.0",
+	Version = "1.9.0",
 	_windows = {},
 	_windowCounter = 0,
 }
@@ -59,6 +59,9 @@ local MINI_PLAYER_SIZE = Vector2.new(300, 156)
 local MINI_PLAYER_MARGIN = 16
 local SETTINGS_PANEL_MIN_WIDTH = 318
 local SETTINGS_PANEL_MAX_WIDTH = 382
+local SEARCH_BAR_HEIGHT = 38
+local SEARCH_RESULTS_MAX_HEIGHT = 250
+local DEFAULT_SEARCH_RESULTS = 6
 
 local DEFAULT_TAB_ICONS = {
 	home = "⌂",
@@ -1898,6 +1901,7 @@ function TabMethods:CreateSection(name)
 
 	local section = setmetatable({
 		_window = self._window,
+		_name = name and tostring(name) or "",
 		_tab = self,
 		_frame = sectionFrame,
 		_content = sectionFrame,
@@ -1933,8 +1937,348 @@ for _, methodName in ipairs({
 	end
 end
 
+local function normalizeSearchText(value)
+	local text = string.lower(tostring(value or ""))
+	local replacements = {
+		["á"] = "a",
+		["à"] = "a",
+		["â"] = "a",
+		["ã"] = "a",
+		["ä"] = "a",
+		["é"] = "e",
+		["è"] = "e",
+		["ê"] = "e",
+		["ë"] = "e",
+		["í"] = "i",
+		["ì"] = "i",
+		["î"] = "i",
+		["ï"] = "i",
+		["ó"] = "o",
+		["ò"] = "o",
+		["ô"] = "o",
+		["õ"] = "o",
+		["ö"] = "o",
+		["ú"] = "u",
+		["ù"] = "u",
+		["û"] = "u",
+		["ü"] = "u",
+		["ç"] = "c",
+	}
+	for accented, plain in pairs(replacements) do
+		text = string.gsub(text, accented, plain)
+	end
+	text = string.gsub(text, "[%c%p]", " ")
+	text = string.gsub(text, "%s+", " ")
+	return string.gsub(text, "^%s*(.-)%s*$", "%1")
+end
+
+local function collectSearchTexts(root)
+	local texts = {}
+	local seen = {}
+	local ignored = {
+		["×"] = true,
+		["−"] = true,
+		["+"] = true,
+		["⌄"] = true,
+		["›"] = true,
+		["✓"] = true,
+		["↗"] = true,
+	}
+
+	for _, descendant in ipairs(root:GetDescendants()) do
+		if descendant:IsA("TextLabel") or descendant:IsA("TextButton") or descendant:IsA("TextBox") then
+			local text = tostring(descendant.Text or "")
+			local normalized = normalizeSearchText(text)
+			if normalized ~= "" and not ignored[text] and not seen[normalized] then
+				seen[normalized] = true
+				table.insert(texts, text)
+			end
+		end
+	end
+
+	return texts
+end
+
 local WindowMethods = {}
 WindowMethods.__index = WindowMethods
+
+function WindowMethods:_clearSearchResults()
+	if self._searchResultsMaid then
+		self._searchResultsMaid:Cleanup()
+	end
+	self._searchResultsMaid = Maid.new()
+
+	if self._searchResultsList then
+		for _, child in ipairs(self._searchResultsList:GetChildren()) do
+			if child:IsA("GuiObject") then
+				child:Destroy()
+			end
+		end
+	end
+
+	self._searchResultCache = {}
+	if self._searchResults then
+		self._searchResults.Visible = false
+		self._searchResults.Size = UDim2.new(0, self._searchBarWidth or 320, 0, 0)
+	end
+end
+
+function WindowMethods:_collectSearchResults(query)
+	local normalizedQuery = normalizeSearchText(query)
+	if normalizedQuery == "" then
+		return {}
+	end
+
+	local queryTokens = {}
+	for token in string.gmatch(normalizedQuery, "%S+") do
+		table.insert(queryTokens, token)
+	end
+
+	local results = {}
+	for _, tab in ipairs(self._tabs) do
+		if not tab._destroyed then
+			for _, section in ipairs(tab._sections) do
+				if not section._destroyed then
+					for _, root in ipairs(section._content:GetChildren()) do
+						if
+							root:IsA("GuiObject")
+							and root ~= section._frame:FindFirstChild("SectionTitle")
+							and root.Name ~= "SectionTitle"
+						then
+							local texts = collectSearchTexts(root)
+							if #texts > 0 then
+								local sectionName = section._name or ""
+								local haystack = normalizeSearchText(
+									table.concat(texts, " ") .. " " .. tab._name .. " " .. sectionName
+								)
+								local matches = true
+								for _, token in ipairs(queryTokens) do
+									if not string.find(haystack, token, 1, true) then
+										matches = false
+										break
+									end
+								end
+
+								if matches then
+									local title = texts[1]
+									local normalizedTitle = normalizeSearchText(title)
+									local score = 20
+									if normalizedTitle == normalizedQuery then
+										score = 120
+									elseif string.sub(normalizedTitle, 1, #normalizedQuery) == normalizedQuery then
+										score = 90
+									elseif string.find(normalizedTitle, normalizedQuery, 1, true) then
+										score = 70
+									elseif string.find(normalizeSearchText(tab._name), normalizedQuery, 1, true) then
+										score = 50
+									elseif
+										sectionName ~= ""
+										and string.find(normalizeSearchText(sectionName), normalizedQuery, 1, true)
+									then
+										score = 42
+									end
+
+									table.insert(results, {
+										Title = title,
+										Description = texts[2],
+										Tab = tab,
+										Section = section,
+										Root = root,
+										Score = score,
+									})
+								end
+							end
+						end
+					end
+				end
+			end
+		end
+	end
+
+	table.sort(results, function(a, b)
+		if a.Score == b.Score then
+			return tostring(a.Title) < tostring(b.Title)
+		end
+		return a.Score > b.Score
+	end)
+
+	return results
+end
+
+function WindowMethods:_activateSearchResult(result)
+	if self._destroyed or not result or not result.Tab or result.Tab._destroyed then
+		return
+	end
+
+	if self._searchBox then
+		self._searchBox:ReleaseFocus()
+	end
+	self:_clearSearchResults()
+
+	if result.Tab._isSettings then
+		self:SetSettingsPanelVisible(true)
+	else
+		self:SelectTab(result.Tab)
+	end
+
+	task.defer(function()
+		if self._destroyed or not result.Root or not result.Root.Parent then
+			return
+		end
+		local scroll = result.Tab._scroll
+		if scroll and scroll.Parent then
+			local offset = result.Root.AbsolutePosition.Y - scroll.AbsolutePosition.Y + scroll.CanvasPosition.Y - 14
+			scroll.CanvasPosition = Vector2.new(0, math.max(offset, 0))
+		end
+
+		if result.Root:IsA("Frame") then
+			local originalColor = result.Root.BackgroundColor3
+			playTween(result.Root, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.CardHover })
+			local resetTaskId
+			resetTaskId = self._maid:Give(task.delay(0.32, function()
+				self._maid:Forget(resetTaskId)
+				if not self._destroyed and result.Root.Parent then
+					playTween(result.Root, TWEEN_INFO, { BackgroundColor3 = originalColor })
+				end
+			end))
+		end
+	end)
+end
+
+function WindowMethods:_renderSearchResults(query)
+	if self._destroyed or not self._searchEnabled then
+		return
+	end
+
+	self:_clearSearchResults()
+	local normalizedQuery = normalizeSearchText(query)
+	self._searchClearButton.Visible = normalizedQuery ~= ""
+	if normalizedQuery == "" then
+		return
+	end
+
+	local results = self:_collectSearchResults(normalizedQuery)
+	self._searchResultCache = results
+	local maximum = math.max(tonumber(self._maxSearchResults) or DEFAULT_SEARCH_RESULTS, 1)
+	local visibleCount = math.min(#results, maximum)
+	local rowHeight = 52
+	local panelHeight = math.min(visibleCount * rowHeight + 14, SEARCH_RESULTS_MAX_HEIGHT)
+
+	if visibleCount == 0 then
+		local empty = makeTextLabel(self._searchResultsList, {
+			Name = "EmptySearch",
+			Size = UDim2.new(1, -8, 0, 48),
+			Font = Enum.Font.GothamMedium,
+			Text = "Nenhum resultado para “" .. tostring(query) .. "”",
+			TextColor3 = Theme.Subtext,
+			TextXAlignment = Enum.TextXAlignment.Left,
+			TextSize = 12,
+			TextTruncate = Enum.TextTruncate.AtEnd,
+			ZIndex = 47,
+		})
+		create("UIPadding", {
+			PaddingLeft = UDim.new(0, 12),
+			PaddingRight = UDim.new(0, 12),
+			Parent = empty,
+		})
+		visibleCount = 1
+		panelHeight = 62
+	else
+		for index = 1, visibleCount do
+			local result = results[index]
+			local selectedResult = result
+			local row = makeTextButton(self._searchResultsList, {
+				Name = "SearchResult",
+				Size = UDim2.new(1, -8, 0, 46),
+				BackgroundColor3 = Theme.PanelAlt,
+				Text = "",
+				LayoutOrder = index,
+				ZIndex = 47,
+			})
+			addCorner(row, CONTROL_CORNER_RADIUS)
+			local rowStroke = addInsetStroke(row, CONTROL_CORNER_RADIUS, Theme.Stroke, 0.82, 2, 49)
+
+			makeTextLabel(row, {
+				Position = UDim2.fromOffset(12, 5),
+				Size = UDim2.new(1, -40, 0, 19),
+				Font = Enum.Font.GothamMedium,
+				Text = tostring(result.Title),
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextSize = 12,
+				TextTruncate = Enum.TextTruncate.AtEnd,
+				ZIndex = 50,
+			})
+			local pathText = result.Tab._name
+			if result.Section._name and result.Section._name ~= "" then
+				pathText ..= "  •  " .. result.Section._name
+			end
+			makeTextLabel(row, {
+				Position = UDim2.fromOffset(12, 24),
+				Size = UDim2.new(1, -40, 0, 16),
+				Text = pathText,
+				TextColor3 = Theme.Subtext,
+				TextXAlignment = Enum.TextXAlignment.Left,
+				TextSize = 10,
+				TextTruncate = Enum.TextTruncate.AtEnd,
+				ZIndex = 50,
+			})
+			makeTextLabel(row, {
+				AnchorPoint = Vector2.new(1, 0.5),
+				Position = UDim2.new(1, -12, 0.5, 0),
+				Size = UDim2.fromOffset(16, 20),
+				Font = Enum.Font.GothamBold,
+				Text = "›",
+				TextColor3 = Theme.Subtext,
+				TextSize = 17,
+				ZIndex = 50,
+			})
+
+			bindInteractiveSurface(row, self._searchResultsMaid, row, rowStroke, nil, {
+				NormalColor = Theme.PanelAlt,
+				HoverColor = Theme.CardHover,
+				StrokeTransparency = 0.82,
+				HoverStrokeTransparency = 0.34,
+			})
+			self._searchResultsMaid:Give(row.MouseButton1Click:Connect(function()
+				self:_activateSearchResult(selectedResult)
+			end))
+		end
+	end
+
+	self._searchResults.Visible = true
+	self._searchResults.Size = UDim2.new(0, self._searchBarWidth or 320, 0, panelHeight)
+end
+
+function WindowMethods:SetSearchQuery(query)
+	if self._destroyed or not self._searchBox then
+		return self
+	end
+	self._searchBox.Text = tostring(query or "")
+	self:_renderSearchResults(self._searchBox.Text)
+	return self
+end
+
+function WindowMethods:GetSearchQuery()
+	return self._searchBox and self._searchBox.Text or ""
+end
+
+function WindowMethods:FocusSearch()
+	if not self._destroyed and self._searchEnabled and self._searchBox then
+		self._searchBox:CaptureFocus()
+	end
+	return self
+end
+
+function WindowMethods:SetSearchVisible(visible)
+	self._searchEnabled = visible == true
+	if self._searchContainer then
+		self._searchContainer.Visible = self._searchEnabled
+	end
+	if not self._searchEnabled then
+		self:_clearSearchResults()
+	end
+	return self
+end
 
 function WindowMethods:SetKeybind(keyCode)
 	local normalized = normalizeKeyCode(keyCode)
@@ -1974,7 +2318,7 @@ function WindowMethods:SetGameInfo(config)
 	end
 	if config.Creator ~= nil then
 		local value = tostring(config.Creator)
-		for _, label in ipairs({ self._gameCreatorLabel, self._miniGameCreatorLabel }) do
+		for _, label in ipairs({ self._gameCreatorLabel, self._miniGameCreatorLabel, self._settingsGameCreatorLabel }) do
 			if label then
 				label.Text = value
 			end
@@ -2247,6 +2591,12 @@ function WindowMethods:SetVisible(visible, instant)
 		return self
 	end
 	self._visible = isVisible
+	if not isVisible then
+		self:_clearSearchResults()
+		if self._searchBox then
+			self._searchBox:ReleaseFocus()
+		end
+	end
 	self:_cancelVisibilityTweens()
 	self:_cancelResponsiveTweens()
 	self:_cancelModeTransition()
@@ -2393,6 +2743,12 @@ function WindowMethods:SetMinimized(minimized, instant)
 	end
 
 	local targetMinimized = minimized == true
+	if targetMinimized then
+		self:_clearSearchResults()
+		if self._searchBox then
+			self._searchBox:ReleaseFocus()
+		end
+	end
 	if self._minimized == targetMinimized then
 		return self
 	end
@@ -2568,6 +2924,12 @@ function WindowMethods:SetSettingsPanelVisible(visible, instant)
 	end
 
 	local open = visible == true
+	if open then
+		self:_clearSearchResults()
+		if self._searchBox then
+			self._searchBox:ReleaseFocus()
+		end
+	end
 	if open and self._minimized then
 		self:SetMinimized(false, true)
 	end
@@ -2590,13 +2952,13 @@ function WindowMethods:SetSettingsPanelVisible(visible, instant)
 	end
 
 	local panelWidth = self._settingsPanelWidth or SETTINGS_PANEL_MAX_WIDTH
-	local shownPosition = UDim2.new(1, -panelWidth, 0, 0)
-	local hiddenPosition = UDim2.new(1, 8, 0, 0)
+	local shownPosition = UDim2.new(1, -(panelWidth + 8), 0, 8)
+	local hiddenPosition = UDim2.new(1, 8, 0, 8)
 	local animate = self._animationsEnabled and instant ~= true and self._visible
 
 	if not animate then
 		self._settingsBackdrop.Visible = open
-		self._settingsBackdrop.BackgroundTransparency = open and 0.58 or 1
+		self._settingsBackdrop.BackgroundTransparency = 1
 		self._settingsPanel.Visible = open
 		self._settingsPanel.Position = open and shownPosition or hiddenPosition
 		return self
@@ -2608,8 +2970,8 @@ function WindowMethods:SetSettingsPanelVisible(visible, instant)
 		self._settingsPanel.Position = hiddenPosition
 	end
 
-	self._settingsBackdropTween = playTween(self._settingsBackdrop, FADE_TWEEN_INFO, {
-		BackgroundTransparency = open and 0.58 or 1,
+	self._settingsBackdropTween = playTween(self._settingsBackdrop, FAST_TWEEN_INFO, {
+		BackgroundTransparency = 1,
 	})
 	self._settingsPanelTween = playTween(self._settingsPanel, TWEEN_INFO, {
 		Position = open and shownPosition or hiddenPosition,
@@ -2743,14 +3105,34 @@ function WindowMethods:_updateResponsiveScale(animated)
 	self._gameNameLabel.Size = UDim2.fromOffset(gameTextWidth, 25)
 	self._gameCreatorLabel.Size = UDim2.fromOffset(gameTextWidth, 20)
 
-	local panelWidth = compact and math.min(SETTINGS_PANEL_MIN_WIDTH, math.max(self._baseSize.X - 28, 260))
-		or math.clamp(self._baseSize.X * 0.38, SETTINGS_PANEL_MIN_WIDTH, SETTINGS_PANEL_MAX_WIDTH)
+	local contentLogicalWidth = math.max(self._baseSize.X - sidebarWidth, 240)
+	local panelWidth = math.clamp(
+		contentLogicalWidth * (compact and 0.72 or 0.46),
+		math.min(SETTINGS_PANEL_MIN_WIDTH, contentLogicalWidth - 16),
+		math.min(SETTINGS_PANEL_MAX_WIDTH, contentLogicalWidth - 16)
+	)
 	self._settingsPanelWidth = panelWidth
-	self._settingsViewport.Position = UDim2.fromOffset(10, 10)
-	self._settingsViewport.Size = UDim2.new(1, -20, 1, -(nowPlayingHeight + 20))
+	self._settingsViewport.Position = UDim2.fromOffset(0, 0)
+	self._settingsViewport.Size = UDim2.fromScale(1, 1)
 	self._settingsBackdrop.Size = UDim2.fromScale(1, 1)
-	self._settingsPanel.Size = UDim2.new(0, panelWidth, 1, 0)
-	self._settingsPanel.Position = self._settingsPanelOpen and UDim2.new(1, -panelWidth, 0, 0) or UDim2.new(1, 8, 0, 0)
+	self._settingsPanel.Size = UDim2.new(0, panelWidth, 1, -16)
+	self._settingsPanel.Position = self._settingsPanelOpen and UDim2.new(1, -(panelWidth + 8), 0, 8)
+		or UDim2.new(1, 8, 0, 8)
+
+	local showTopbarTitle = contentLogicalWidth >= 650
+	self._currentTabLabel.Visible = showTopbarTitle
+	self._topbarAccent.Visible = showTopbarTitle
+	local searchWidth = math.clamp(contentLogicalWidth - 180, 160, 360)
+	local searchOffset = showTopbarTitle and 12 or -12
+	self._searchBarWidth = searchWidth
+	self._searchContainer.Position = UDim2.new(0.5, searchOffset, 0.5, 0)
+	self._searchContainer.Size = UDim2.fromOffset(searchWidth, SEARCH_BAR_HEIGHT)
+	self._searchResults.Position = UDim2.new(0.5, searchOffset, 0, TOPBAR_HEIGHT - 2)
+	if self._searchResults.Visible then
+		self._searchResults.Size = UDim2.new(0, searchWidth, 0, self._searchResults.Size.Y.Offset)
+	else
+		self._searchResults.Size = UDim2.new(0, searchWidth, 0, 0)
+	end
 
 	self:_syncWindowLayers()
 	self:_clampToViewport(viewport, effectiveScale)
@@ -3567,7 +3949,7 @@ function Library:CreateWindow(config)
 
 	local currentTabLabel = makeTextLabel(topbar, {
 		Position = UDim2.fromOffset(18, -3),
-		Size = UDim2.new(1, -122, 1, 0),
+		Size = UDim2.fromOffset(156, TOPBAR_HEIGHT),
 		Font = Enum.Font.GothamBold,
 		Text = "",
 		TextXAlignment = Enum.TextXAlignment.Left,
@@ -3587,6 +3969,101 @@ function Library:CreateWindow(config)
 	})
 	addCorner(topbarAccent, 1)
 
+	local initialSearchWidth = math.clamp(baseSize.X * 0.34, 250, 360)
+	local searchContainer = create("Frame", {
+		Name = "SearchBar",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.new(0.5, -18, 0.5, 0),
+		Size = UDim2.fromOffset(initialSearchWidth, SEARCH_BAR_HEIGHT),
+		BackgroundColor3 = Theme.Input,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		Visible = config.ShowSearch ~= false,
+		ZIndex = 10,
+		Parent = topbar,
+	})
+	addCorner(searchContainer, SEARCH_BAR_HEIGHT / 2)
+	local searchStroke = addInsetStroke(searchContainer, SEARCH_BAR_HEIGHT / 2, Theme.Stroke, 0.62, 2, 11)
+	addGradient(searchContainer, Color3.fromRGB(40, 40, 40), Color3.fromRGB(31, 31, 31), 90)
+
+	local searchIcon = makeTextLabel(searchContainer, {
+		Position = UDim2.fromOffset(13, 0),
+		Size = UDim2.fromOffset(24, SEARCH_BAR_HEIGHT),
+		Font = Enum.Font.GothamBold,
+		Text = "⌕",
+		TextColor3 = Theme.Subtext,
+		TextSize = 18,
+		ZIndex = 12,
+	})
+
+	local searchBox = create("TextBox", {
+		Name = "SearchInput",
+		Position = UDim2.fromOffset(40, 0),
+		Size = UDim2.new(1, -78, 1, 0),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		ClearTextOnFocus = false,
+		Font = Enum.Font.GothamMedium,
+		PlaceholderColor3 = Theme.Subtext,
+		PlaceholderText = tostring(config.SearchPlaceholder or "O que você quer encontrar?"),
+		Text = "",
+		TextColor3 = Theme.Text,
+		TextSize = 12,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		ZIndex = 12,
+		Parent = searchContainer,
+	})
+
+	local searchClearButton = makeTextButton(searchContainer, {
+		AnchorPoint = Vector2.new(1, 0.5),
+		Position = UDim2.new(1, -9, 0.5, 0),
+		Size = UDim2.fromOffset(24, 24),
+		BackgroundTransparency = 1,
+		Text = "×",
+		TextColor3 = Theme.Subtext,
+		TextSize = 13,
+		Visible = false,
+		ZIndex = 13,
+	})
+
+	local searchResults = create("Frame", {
+		Name = "SearchResults",
+		AnchorPoint = Vector2.new(0.5, 0),
+		Position = UDim2.new(0.5, -18, 0, TOPBAR_HEIGHT - 2),
+		Size = UDim2.fromOffset(initialSearchWidth, 0),
+		BackgroundColor3 = Theme.Sidebar,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		Visible = false,
+		ZIndex = 45,
+		Parent = content,
+	})
+	addCorner(searchResults, PANEL_CORNER_RADIUS)
+	addInsetStroke(searchResults, PANEL_CORNER_RADIUS, Theme.Outline, 0.32, 2, 48)
+	addGradient(searchResults, Color3.fromRGB(27, 27, 27), Color3.fromRGB(18, 18, 18), 90)
+
+	local searchResultsList = create("ScrollingFrame", {
+		Name = "Results",
+		Position = UDim2.fromOffset(7, 7),
+		Size = UDim2.new(1, -14, 1, -14),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		CanvasSize = UDim2.new(),
+		AutomaticCanvasSize = Enum.AutomaticSize.Y,
+		ScrollingDirection = Enum.ScrollingDirection.Y,
+		ScrollBarImageColor3 = Theme.Subtext,
+		ScrollBarImageTransparency = 0.55,
+		ScrollBarThickness = 2,
+		ZIndex = 46,
+		Parent = searchResults,
+	})
+	create("UIListLayout", {
+		Padding = UDim.new(0, 6),
+		SortOrder = Enum.SortOrder.LayoutOrder,
+		Parent = searchResultsList,
+	})
+
 	local dragHandle = create("Frame", {
 		Name = "DragHandle",
 		Size = UDim2.new(1, -104, 1, 0),
@@ -3602,6 +4079,7 @@ function Library:CreateWindow(config)
 		BackgroundColor3 = Theme.Card,
 		Text = "−",
 		TextSize = 17,
+		Visible = false,
 		ZIndex = 7,
 	})
 	addCorner(scaleMinus, 16)
@@ -3615,6 +4093,7 @@ function Library:CreateWindow(config)
 		Text = "100%",
 		TextColor3 = Theme.Subtext,
 		TextSize = 11,
+		Visible = false,
 		ZIndex = 7,
 	})
 
@@ -3624,6 +4103,7 @@ function Library:CreateWindow(config)
 		BackgroundColor3 = Theme.Card,
 		Text = "+",
 		TextSize = 16,
+		Visible = false,
 		ZIndex = 7,
 	})
 	addCorner(scalePlus, 16)
@@ -3976,19 +4456,18 @@ function Library:CreateWindow(config)
 		playTween(gameIconScale, FAST_TWEEN_INFO, { Scale = 1 })
 	end))
 
-	-- Settings ocupa um viewport interno recuado das bordas da janela.
-	-- O painel nasce dentro desse viewport e nunca atravessa os cantos externos.
+	-- Painel lateral inspirado no painel "Now Playing" do Spotify desktop.
+	-- Ele vive dentro da área de conteúdo, entra pela direita e não atravessa a janela.
 	local settingsViewport = create("Frame", {
 		Name = "SettingsViewport",
-		Position = UDim2.fromOffset(10, 10),
-		Size = UDim2.new(1, -20, 1, -(initialNowPlayingHeight + 20)),
+		Position = UDim2.fromOffset(0, 0),
+		Size = UDim2.fromScale(1, 1),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		ZIndex = 51,
-		Parent = main,
+		Parent = content,
 	})
-	addCorner(settingsViewport, PANEL_CORNER_RADIUS)
 
 	local settingsBackdrop = makeTextButton(settingsViewport, {
 		Name = "SettingsBackdrop",
@@ -3999,13 +4478,13 @@ function Library:CreateWindow(config)
 		Visible = false,
 		ZIndex = 52,
 	})
-	addCorner(settingsBackdrop, PANEL_CORNER_RADIUS)
 
-	local initialSettingsWidth = math.clamp(baseSize.X * 0.38, SETTINGS_PANEL_MIN_WIDTH, SETTINGS_PANEL_MAX_WIDTH)
+	local initialSettingsWidth =
+		math.clamp((baseSize.X - 220) * 0.46, SETTINGS_PANEL_MIN_WIDTH, SETTINGS_PANEL_MAX_WIDTH)
 	local settingsPanel = create("Frame", {
 		Name = "SettingsPanel",
-		Position = UDim2.new(1, 8, 0, 0),
-		Size = UDim2.new(0, initialSettingsWidth, 1, 0),
+		Position = UDim2.new(1, 8, 0, 8),
+		Size = UDim2.new(0, initialSettingsWidth, 1, -16),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = false,
@@ -4014,18 +4493,30 @@ function Library:CreateWindow(config)
 		Parent = settingsViewport,
 	})
 
+	local settingsShadow = create("Frame", {
+		Name = "Shadow",
+		Position = UDim2.fromOffset(-5, 5),
+		Size = UDim2.new(1, 5, 1, -2),
+		BackgroundColor3 = Theme.Shadow,
+		BackgroundTransparency = 0.46,
+		BorderSizePixel = 0,
+		ZIndex = 59,
+		Parent = settingsPanel,
+	})
+	addCorner(settingsShadow, PANEL_CORNER_RADIUS + 3)
+
 	local settingsSurface = create("Frame", {
 		Name = "Surface",
 		Size = UDim2.fromScale(1, 1),
-		BackgroundColor3 = Theme.Sidebar,
+		BackgroundColor3 = Theme.BackgroundAlt,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
 		Active = true,
 		ZIndex = 60,
 		Parent = settingsPanel,
 	})
-	addCorner(settingsSurface, PANEL_CORNER_RADIUS)
-	addGradient(settingsSurface, Color3.fromRGB(28, 28, 28), Color3.fromRGB(18, 18, 18), 90)
+	addCorner(settingsSurface, PANEL_CORNER_RADIUS + 2)
+	addGradient(settingsSurface, Color3.fromRGB(24, 24, 24), Color3.fromRGB(13, 13, 13), 90)
 
 	local settingsBorder = create("Frame", {
 		Name = "Border",
@@ -4034,88 +4525,148 @@ function Library:CreateWindow(config)
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		Active = false,
-		ZIndex = 70,
+		ZIndex = 78,
 		Parent = settingsSurface,
 	})
-	addCorner(settingsBorder, PANEL_CORNER_RADIUS - 2)
-	addStroke(settingsBorder, Theme.Outline, 0.28, 2)
+	addCorner(settingsBorder, PANEL_CORNER_RADIUS)
+	addStroke(settingsBorder, Theme.Outline, 0.26, 2)
 
 	local settingsHeader = create("Frame", {
 		Name = "Header",
-		Size = UDim2.new(1, 0, 0, 78),
+		Size = UDim2.new(1, 0, 0, 54),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ZIndex = 62,
 		Parent = settingsSurface,
 	})
 
-	local settingsGameIconHolder = create("Frame", {
-		Position = UDim2.fromOffset(14, 14),
-		Size = UDim2.fromOffset(48, 48),
-		BackgroundColor3 = Theme.Card,
-		BorderSizePixel = 0,
-		ClipsDescendants = true,
-		ZIndex = 63,
-		Parent = settingsHeader,
-	})
-	addCorner(settingsGameIconHolder, CARD_CORNER_RADIUS)
-	local settingsGameIcon = create("ImageLabel", {
-		Size = UDim2.fromScale(1, 1),
-		BackgroundTransparency = 1,
-		BorderSizePixel = 0,
-		Image = tostring(config.GameIcon or defaultIcon),
-		ScaleType = Enum.ScaleType.Crop,
-		ZIndex = 64,
-		Parent = settingsGameIconHolder,
-	})
-
 	makeTextLabel(settingsHeader, {
-		Position = UDim2.fromOffset(74, 13),
-		Size = UDim2.new(1, -120, 0, 20),
+		Position = UDim2.fromOffset(14, 0),
+		Size = UDim2.new(1, -62, 1, 0),
 		Font = Enum.Font.GothamBold,
 		Text = "Settings",
 		TextXAlignment = Enum.TextXAlignment.Left,
-		TextSize = 15,
-		ZIndex = 64,
-	})
-	local settingsGameNameLabel = makeTextLabel(settingsHeader, {
-		Position = UDim2.fromOffset(74, 36),
-		Size = UDim2.new(1, -120, 0, 18),
-		Text = tostring(config.GameName or game.Name or "Experiência Roblox"),
-		TextColor3 = Theme.Subtext,
-		TextXAlignment = Enum.TextXAlignment.Left,
-		TextSize = 11,
+		TextSize = 16,
 		TextTruncate = Enum.TextTruncate.AtEnd,
 		ZIndex = 64,
 	})
 
 	local settingsCloseButton = makeTextButton(settingsHeader, {
-		Position = UDim2.new(1, -46, 0, 14),
-		Size = UDim2.fromOffset(32, 32),
+		Position = UDim2.new(1, -44, 0.5, -15),
+		Size = UDim2.fromOffset(30, 30),
 		BackgroundColor3 = Theme.Card,
 		Text = "×",
 		TextColor3 = Theme.Subtext,
 		TextSize = 13,
 		ZIndex = 65,
 	})
-	addCorner(settingsCloseButton, 16)
+	addCorner(settingsCloseButton, 15)
 	local settingsCloseStroke = addStroke(settingsCloseButton, Theme.Stroke, 0.72, 2)
 	local settingsCloseScale = create("UIScale", { Scale = 1, Parent = settingsCloseButton })
 
 	create("Frame", {
-		Position = UDim2.new(0, 14, 1, -1),
-		Size = UDim2.new(1, -28, 0, 1),
+		Position = UDim2.new(0, 12, 1, -1),
+		Size = UDim2.new(1, -24, 0, 1),
 		BackgroundColor3 = Theme.Divider,
-		BackgroundTransparency = 0.45,
+		BackgroundTransparency = 0.52,
 		BorderSizePixel = 0,
 		ZIndex = 64,
 		Parent = settingsHeader,
 	})
 
+	local settingsHero = create("Frame", {
+		Name = "GameHero",
+		Position = UDim2.fromOffset(12, 66),
+		Size = UDim2.new(1, -24, 0, 174),
+		BackgroundColor3 = Theme.Card,
+		BorderSizePixel = 0,
+		ClipsDescendants = true,
+		ZIndex = 62,
+		Parent = settingsSurface,
+	})
+	addCorner(settingsHero, PANEL_CORNER_RADIUS)
+	addInsetStroke(settingsHero, PANEL_CORNER_RADIUS, Theme.Stroke, 0.62, 2, 67)
+
+	local settingsGameIcon = create("ImageLabel", {
+		Name = "GameImage",
+		Size = UDim2.fromScale(1, 1),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Image = tostring(config.GameIcon or defaultIcon),
+		ScaleType = Enum.ScaleType.Crop,
+		ZIndex = 63,
+		Parent = settingsHero,
+	})
+
+	local settingsHeroOverlay = create("Frame", {
+		Size = UDim2.fromScale(1, 1),
+		BackgroundColor3 = Theme.Shadow,
+		BackgroundTransparency = 0.32,
+		BorderSizePixel = 0,
+		ZIndex = 64,
+		Parent = settingsHero,
+	})
+	create("UIGradient", {
+		Color = ColorSequence.new({
+			ColorSequenceKeypoint.new(0, Color3.fromRGB(22, 22, 22)),
+			ColorSequenceKeypoint.new(1, Color3.fromRGB(0, 0, 0)),
+		}),
+		Transparency = NumberSequence.new({
+			NumberSequenceKeypoint.new(0, 0.72),
+			NumberSequenceKeypoint.new(0.48, 0.54),
+			NumberSequenceKeypoint.new(1, 0.04),
+		}),
+		Rotation = 90,
+		Parent = settingsHeroOverlay,
+	})
+
+	makeTextLabel(settingsHero, {
+		Position = UDim2.fromOffset(13, 11),
+		Size = UDim2.new(1, -26, 0, 17),
+		Font = Enum.Font.GothamMedium,
+		Text = "●  Experiência atual",
+		TextColor3 = Theme.Text,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 9,
+		ZIndex = 66,
+	})
+
+	local settingsGameNameLabel = makeTextLabel(settingsHero, {
+		Position = UDim2.new(0, 14, 1, -55),
+		Size = UDim2.new(1, -28, 0, 24),
+		Font = Enum.Font.GothamBold,
+		Text = tostring(config.GameName or game.Name or "Experiência Roblox"),
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 16,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 66,
+	})
+	local settingsGameCreatorLabel = makeTextLabel(settingsHero, {
+		Position = UDim2.new(0, 14, 1, -31),
+		Size = UDim2.new(1, -28, 0, 18),
+		Font = Enum.Font.GothamMedium,
+		Text = tostring(config.GameCreator or "Criador do jogo"),
+		TextColor3 = Theme.Subtext,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 10,
+		TextTruncate = Enum.TextTruncate.AtEnd,
+		ZIndex = 66,
+	})
+
+	makeTextLabel(settingsSurface, {
+		Position = UDim2.fromOffset(14, 250),
+		Size = UDim2.new(1, -28, 0, 24),
+		Font = Enum.Font.GothamBold,
+		Text = "Configurações",
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextSize = 14,
+		ZIndex = 64,
+	})
+
 	local settingsPageContainer = create("Frame", {
 		Name = "Pages",
-		Position = UDim2.fromOffset(0, 78),
-		Size = UDim2.new(1, 0, 1, -78),
+		Position = UDim2.fromOffset(0, 278),
+		Size = UDim2.new(1, 0, 1, -286),
 		BackgroundTransparency = 1,
 		BorderSizePixel = 0,
 		ClipsDescendants = true,
@@ -4416,6 +4967,17 @@ function Library:CreateWindow(config)
 		_settingsTabsContainer = settingsTabsContainer,
 		_currentTabLabel = currentTabLabel,
 		_topbarAccent = topbarAccent,
+		_searchContainer = searchContainer,
+		_searchStroke = searchStroke,
+		_searchIcon = searchIcon,
+		_searchBox = searchBox,
+		_searchClearButton = searchClearButton,
+		_searchResults = searchResults,
+		_searchResultsList = searchResultsList,
+		_searchResultsMaid = Maid.new(),
+		_searchEnabled = config.ShowSearch ~= false,
+		_searchBarWidth = initialSearchWidth,
+		_maxSearchResults = math.max(tonumber(config.MaxSearchResults) or DEFAULT_SEARCH_RESULTS, 1),
 		_pageContainer = pageContainer,
 		_settingsPageContainer = settingsPageContainer,
 		_settingsViewport = settingsViewport,
@@ -4425,6 +4987,7 @@ function Library:CreateWindow(config)
 		_settingsPanelWidth = initialSettingsWidth,
 		_settingsGameIcon = settingsGameIcon,
 		_settingsGameNameLabel = settingsGameNameLabel,
+		_settingsGameCreatorLabel = settingsGameCreatorLabel,
 		_scaleLabel = scaleLabel,
 		_scaleControls = scaleControls,
 		_nowPlaying = nowPlaying,
@@ -4484,6 +5047,9 @@ function Library:CreateWindow(config)
 	}, WindowMethods)
 
 	local function elevateSettingsDescendant(descendant)
+		if descendant == settingsShadow then
+			return
+		end
 		if descendant:IsA("GuiObject") and descendant.ZIndex < 60 then
 			descendant.ZIndex += 60
 		end
@@ -4506,6 +5072,9 @@ function Library:CreateWindow(config)
 		if window._modeMaid then
 			window._modeMaid:Cleanup()
 		end
+		if window._searchResultsMaid then
+			window._searchResultsMaid:Cleanup()
+		end
 		if window._settingsPanelConnection then
 			window._settingsPanelConnection:Disconnect()
 			window._settingsPanelConnection = nil
@@ -4517,6 +5086,40 @@ function Library:CreateWindow(config)
 			end
 		end
 	end)
+
+	maid:Give(searchBox:GetPropertyChangedSignal("Text"):Connect(function()
+		window:_renderSearchResults(searchBox.Text)
+	end))
+	maid:Give(searchBox.Focused:Connect(function()
+		playTween(searchContainer, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.InputHover })
+		playTween(searchStroke, FAST_TWEEN_INFO, {
+			Color = Theme.Text,
+			Transparency = 0.22,
+		})
+		playTween(searchIcon, FAST_TWEEN_INFO, { TextColor3 = Theme.Text })
+		window:_renderSearchResults(searchBox.Text)
+	end))
+	maid:Give(searchBox.FocusLost:Connect(function(enterPressed)
+		playTween(searchContainer, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.Input })
+		playTween(searchStroke, FAST_TWEEN_INFO, {
+			Color = Theme.Stroke,
+			Transparency = 0.62,
+		})
+		playTween(searchIcon, FAST_TWEEN_INFO, { TextColor3 = Theme.Subtext })
+		if enterPressed and window._searchResultCache and window._searchResultCache[1] then
+			window:_activateSearchResult(window._searchResultCache[1])
+		end
+	end))
+	maid:Give(searchClearButton.MouseButton1Click:Connect(function()
+		searchBox.Text = ""
+		searchBox:CaptureFocus()
+	end))
+	maid:Give(searchClearButton.MouseEnter:Connect(function()
+		playTween(searchClearButton, FAST_TWEEN_INFO, { TextColor3 = Theme.Text })
+	end))
+	maid:Give(searchClearButton.MouseLeave:Connect(function()
+		playTween(searchClearButton, FAST_TWEEN_INFO, { TextColor3 = Theme.Subtext })
+	end))
 
 	window:_updateSessionTimer(0)
 	maid:Give(RunService.Heartbeat:Connect(function()

@@ -4,7 +4,7 @@
 
 ### A modern Roblox UI library written in Luau, styled after Spotify's look.
 
-<img alt="Version" src="https://img.shields.io/badge/version-1.8.0-1DB954?style=for-the-badge">
+<img alt="Version" src="https://img.shields.io/badge/version-1.9.0-1DB954?style=for-the-badge">
 <img alt="Luau" src="https://img.shields.io/badge/Luau-Roblox-00A2FF?style=for-the-badge&logo=roblox">
 <img alt="Dependencies" src="https://img.shields.io/badge/dependencies-none-1DB954?style=for-the-badge">
 
@@ -16,7 +16,7 @@
 
 ## ✨ About
 
-Spotify UI Library is a Roblox interface library built around a simple API, a consistent look, and code that's easy to maintain. You get a full window with sidebar, tabs, sections, interactive components, notifications, responsive scaling, a configurable keybind, a sliding Settings side panel, and a Spotify-inspired mini player.
+Spotify UI Library is a Roblox interface library built around a simple API, a consistent look, and code that's easy to maintain. You get a full window with sidebar, tabs, sections, interactive components, notifications, responsive scaling, a configurable keybind, a Settings side panel, global search, and a Spotify-inspired mini player.
 
 ---
 
@@ -24,7 +24,31 @@ Spotify UI Library is a Roblox interface library built around a simple API, a co
 
 Changes for every version, newest on top.
 
-## `v1.8.0` — 07/18/2026
+## `v1.9.0` — 07/19/2026
+
+### ✨ Added
+
+- Central search bar on the topbar, inspired by Spotify desktop.
+- Instant results for tabs, sections and components.
+- Automatic navigation to the found component, including content inside Settings.
+- New APIs: `FocusSearch`, `SetSearchQuery`, `GetSearchQuery`, `SetSearchVisible`.
+- New `ShowSearch`, `SearchPlaceholder` and `MaxSearchResults` options in `CreateWindow`.
+
+### 🔧 Changed
+
+- Settings panel redesigned in the style of Spotify's Now Playing panel.
+- Settings now has a big hero section with the experience's image, name and creator.
+- The panel now only occupies the window's content area and keeps an inner margin on all four edges.
+- The old scale controls on the topbar are hidden; scaling still lives on the bottom bar and the mini player.
+
+### 🐛 Fixed
+
+- Settings panel covering the sidebar during the animation.
+- Hero and search result strokes getting clipped by `ClipsDescendants`.
+- Stale search result listeners sticking around after a new query.
+
+<details>
+<summary><strong>v1.8.0 — 07/18/2026</strong></summary>
 
 ### 🔧 Changed
 
@@ -39,6 +63,8 @@ Changes for every version, newest on top.
 - Mini player stroke losing its rounded corners.
 - Settings panel getting partially clipped or split while sliding in.
 - Settings panel border turning square mid-tween.
+
+</details>
 
 <details>
 <summary><strong>v1.7.0 — 07/18/2026</strong></summary>
@@ -55,7 +81,7 @@ Changes for every version, newest on top.
 ### 🔧 Changed
 
 - The Settings panel now slides entirely from within the window's own internal viewport.
-- The mini player shrank from `520 × 270` to `350 × 190`.
+- The mini player shrank from `520 × 270` to `300 × 156`.
 - Minimize/restore transitions now run in two synced phases.
 - Mini player position gets recalculated and clamped when the viewport or scale changes.
 - Selected dropdown options use an inner stroke so rounded corners stay intact.
@@ -278,6 +304,7 @@ Changes for every version, newest on top.
 - [Window Setup](#-window-setup)
 - [Tabs and Sections](#-tabs-and-sections)
 - [Components](#-components)
+- [Global Search](#-global-search)
 - [Settings and Keybind](#-settings-and-keybind)
 - [Now Playing Bar](#-now-playing-bar)
 - [Mini Player](#-mini-player)
@@ -298,7 +325,8 @@ Changes for every version, newest on top.
 - Subtle gradients, visual elevation, hover/press states.
 - Animations for opening, closing and switching tabs.
 - Sidebar with icon, label and active-tab indicator.
-- Automatic `Settings` tab, opened as a panel sliding out from inside the window.
+- Search bar on the topbar, with instant results and navigation straight to the component.
+- Automatic `Settings` tab, opened as a side panel inspired by Spotify desktop's Now Playing panel.
 - Configurable keybind to open/close the interface.
 - Bottom bar showing the experience's icon, name and creator.
 - Compact, draggable mini player in the bottom-right corner, with a thumbnail, timer and scale controls.
@@ -433,6 +461,9 @@ local Window = Library:CreateWindow({
     ViewportMargin = 20,
     Keybind = Enum.KeyCode.RightShift,
     Minimized = false,
+    ShowSearch = true,
+    SearchPlaceholder = "What do you want to find?",
+    MaxSearchResults = 6,
     ShowNowPlaying = true,
     ShowSessionTimer = true,
     SessionTimerDuration = 3600,
@@ -464,6 +495,9 @@ local Window = Library:CreateWindow({
 | `ViewportMargin` | `number` | `20` | Margin kept between the window and the screen edge. |
 | `Keybind` | `Enum.KeyCode`, `string`, `false` | `RightShift` | Key used to open/close the UI. Pass `false` to disable it. |
 | `Minimized` | `boolean` | `false` | Starts directly in the mini player. |
+| `ShowSearch` | `boolean` | `true` | Shows the search bar on the topbar. |
+| `SearchPlaceholder` | `string` | `What do you want to find?` | Placeholder shown in the search field. |
+| `MaxSearchResults` | `number` | `6` | Maximum number of results shown at once. |
 | `ShowNowPlaying` | `boolean` | `true` | Shows the bottom bar for the experience. |
 | `ShowSessionTimer` | `boolean` | `true` | Shows the timeline with elapsed time since the window was created. |
 | `SessionTimerDuration` | `number` or `false` | `3600` | Duration in seconds used as the visual scale. Pass `false` to show `No limit` and keep the bar without percentage progress. |
@@ -486,6 +520,10 @@ local Window = Library:CreateWindow({
 | `Window:CreateTab(config)` | `Tab` | Creates a new tab. |
 | `Window:SelectTab(tabOrName)` | `boolean` | Selects a tab by object or name. |
 | `Window:GetSettingsTab()` | `Tab` | Returns the automatic Settings tab. |
+| `Window:FocusSearch()` | `Window` | Focuses the search field. |
+| `Window:SetSearchQuery(query)` | `Window` | Sets the search query and refreshes the results. |
+| `Window:GetSearchQuery()` | `string` | Returns the current search text. |
+| `Window:SetSearchVisible(visible)` | `Window` | Shows or hides the search bar. |
 | `Window:SetKeybind(keyCode)` | `Window` | Changes or removes the window's keybind. |
 | `Window:GetKeybind()` | `Enum.KeyCode?` | Returns the current keybind. |
 | `Window:SetScale(scale)` | `Window` | Changes the manual scale. |
@@ -851,17 +889,40 @@ Behavior while capturing:
 
 ---
 
+## 🔎 Global Search
+
+The topbar has a search bar inspired by Spotify. It automatically scans component text, tab names and section names already created.
+
+As you type, results show up below the field. Clicking a result will:
+
+- Open the right tab.
+- Open the side panel if the result lives inside `Settings`.
+- Scroll to the found component.
+- Briefly highlight the card so it's easy to spot.
+
+```lua
+Window:FocusSearch()
+Window:SetSearchQuery("volume")
+print(Window:GetSearchQuery())
+Window:SetSearchVisible(false)
+```
+
+Search doesn't create permanent connections per result — temporary listeners get destroyed every time the list rebuilds. Components added after the window was created also show up automatically.
+
+---
+
 ## ⚙️ Settings and Keybind
 
 The `Settings` tab is created automatically at the bottom of the sidebar. Selecting it **doesn't replace the main page**: an overlay panel slides in from the right, following the same pattern as Spotify desktop's context panel.
 
 The panel includes:
 
-- Experience thumbnail and name in the header.
-- `×` button to close it.
-- Closes when clicking the darkened area outside the panel.
-- Scrollable area for the Keybind Picker and any section added later.
+- Compact header with a title and a `×` button.
+- Large experience image, with a dark gradient, name and creator overlaid on top.
+- Scrollable area below the hero for the Keybind Picker and any section added later.
+- Closes via its button or an outside click.
 - Adaptive width, using the same `UIScale` as the main window.
+- Fully clipped inside the content area, so it doesn't spill over the sidebar or the outer corners.
 
 ```lua
 local SettingsTab = Window:GetSettingsTab()
@@ -1390,6 +1451,6 @@ No license has been set for this package yet. Add a `LICENSE` file with the term
 
 Made in **Luau** for **Roblox**, visually inspired by **Spotify**.
 
-`Spotify UI Library v1.8.0`
+`Spotify UI Library v1.9.0`
 
 </div>
