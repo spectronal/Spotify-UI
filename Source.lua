@@ -3453,6 +3453,12 @@ function WindowMethods:_createSettingsTab()
 		BindToWindow = true,
 	})
 
+	self._settingsOwnerCredits = shortcutsSection:CreateLabel({
+		Text = "Spotify UI Library created by @spectronal",
+		Bold = true,
+		Color = Library.Theme.AccentHover,
+	})
+
 	return settingsTab
 end
 
