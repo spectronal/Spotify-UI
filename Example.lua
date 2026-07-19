@@ -14,8 +14,8 @@ local Window = Library:CreateWindow({
 	Keybind = Enum.KeyCode.RightShift,
 	Minimized = false,
 
-	-- Lucide is loaded automatically from Library.LucideUrl.
-	-- Set LoadLucide = false to use the built-in fallback glyphs.
+	-- lucide-roblox is loaded automatically from Library.LucideUrl.
+	-- Set LoadLucide = false to use built-in fallback glyphs.
 	LoadLucide = true,
 
 	ShowSearch = true,

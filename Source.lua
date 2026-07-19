@@ -1,4 +1,4 @@
--- Source code Spotify UI Library 2.0.0
+-- Source Spotify Library 2.0.1
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -8,7 +8,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Library = {
-	Version = "2.0.0",
+	Version = "2.0.1",
 	_windows = {},
 	_windowCounter = 0,
 }
@@ -105,12 +105,6 @@ local ICON_FALLBACKS = {
 	["gamepad-2"] = "◇",
 }
 
-local IconProviderState = {
-	Provider = nil,
-	Attempted = false,
-	SourceUrl = LUCIDE_SOURCE_URL,
-}
-
 local function normalizeIconName(value)
 	local name = string.lower(tostring(value or ""))
 	name = string.gsub(name, "[%s_]", "-")
@@ -118,164 +112,130 @@ local function normalizeIconName(value)
 	return ICON_ALIASES[name] or name
 end
 
-local function toPascalCase(value)
-	local result = ""
-	for part in string.gmatch(value, "[^%-_ ]+") do
-		result ..= string.upper(string.sub(part, 1, 1)) .. string.sub(part, 2)
-	end
-	return result
+local LucideState = {
+	Library = nil,
+	Attempted = false,
+	SourceUrl = LUCIDE_SOURCE_URL,
+	AssetCache = {},
+}
+
+local function isLucideLibrary(value)
+	return type(value) == "table"
+		and type(value.GetAsset) == "function"
+		and type(value.ImageLabel) == "function"
+		and type(value.IconNames) == "table"
 end
 
-local function loadLucideProvider(sourceUrl)
-	IconProviderState.Attempted = true
-	IconProviderState.SourceUrl = tostring(sourceUrl or LUCIDE_SOURCE_URL)
+local function clearLucideCache()
+	LucideState.AssetCache = {}
+end
 
-	local ok, provider = pcall(function()
+local function loadLucideLibrary(sourceUrl)
+	LucideState.Attempted = true
+	LucideState.SourceUrl = tostring(sourceUrl or LUCIDE_SOURCE_URL)
+	clearLucideCache()
+
+	local ok, result = pcall(function()
 		assert(type(loadstring) == "function", "loadstring is unavailable")
-		local source = game:HttpGet(IconProviderState.SourceUrl)
-		local chunk, compileError = loadstring(source)
-		assert(chunk, compileError or "Lucide source failed to compile")
-		return chunk()
+
+		-- This intentionally mirrors the user's requested loader. The returned
+		-- value is the lucide-roblox library documented by latte-soft.
+		local lucide = loadstring(game:HttpGet(LucideState.SourceUrl))()
+		assert(isLucideLibrary(lucide), "The loaded source is not a compatible lucide-roblox library")
+		return lucide
 	end)
 
-	if ok and provider ~= nil then
-		IconProviderState.Provider = provider
-		return provider
+	if ok then
+		LucideState.Library = result
+		return result
 	end
 
-	warn("[SpotifyUI] Lucide could not be loaded; built-in icon fallbacks will be used:", provider)
-	IconProviderState.Provider = nil
+	warn("[SpotifyUI] lucide-roblox could not be loaded; fallback glyphs will be used:", result)
+	LucideState.Library = nil
 	return nil
 end
 
-local function getLucideProvider()
-	if not IconProviderState.Attempted then
-		loadLucideProvider(IconProviderState.SourceUrl)
+local function getLucideLibrary()
+	if not LucideState.Attempted then
+		loadLucideLibrary(LucideState.SourceUrl)
 	end
-	return IconProviderState.Provider
+	return LucideState.Library
 end
 
-local function normalizeIconData(value)
-	if type(value) == "string" then
-		return { Image = value }
-	elseif type(value) == "number" then
-		return { Image = "rbxassetid://" .. tostring(value) }
-	elseif type(value) ~= "table" then
+local function getRequestedIconSize(size)
+	if typeof(size) ~= "UDim2" then
+		return 24
+	end
+
+	local largestOffset = math.max(math.abs(size.X.Offset), math.abs(size.Y.Offset))
+	if largestOffset <= 0 then
+		return 24
+	end
+
+	return math.max(1, math.floor(largestOffset + 0.5))
+end
+
+local function getDirectIconImage(iconName)
+	if type(iconName) == "number" then
+		return "rbxassetid://" .. tostring(iconName)
+	end
+
+	if type(iconName) ~= "string" then
 		return nil
 	end
 
-	local image = value.Image
-		or value.image
-		or value.Asset
-		or value.asset
-		or value.AssetId
-		or value.assetId
-		or value.Url
-		or value.URL
-		or value.Id
-		or value.ID
-		or value[1]
-	if type(image) == "number" then
-		image = "rbxassetid://" .. tostring(image)
-	end
-	if type(image) ~= "string" or image == "" then
-		return nil
-	end
-
-	return {
-		Image = image,
-		ImageRectOffset = value.ImageRectOffset
-			or value.imageRectOffset
-			or value.RectOffset
-			or value.rectOffset
-			or value.Offset
-			or value.offset
-			or value[2],
-		ImageRectSize = value.ImageRectSize
-			or value.imageRectSize
-			or value.RectSize
-			or value.rectSize
-			or value.Size
-			or value.size
-			or value[3],
-	}
-end
-
-local function resolveLucideIcon(iconName)
 	if
-		type(iconName) == "string"
-		and (
-			string.match(iconName, "^rbxasset")
-			or string.match(iconName, "^rbxthumb")
-			or string.match(iconName, "^https?://")
-		)
+		string.match(iconName, "^rbxasset")
+		or string.match(iconName, "^rbxthumb")
+		or string.match(iconName, "^https?://")
 	then
-		return { Image = iconName }, normalizeIconName(iconName)
+		return iconName
 	end
 
-	local normalized = normalizeIconName(iconName)
-	local provider = getLucideProvider()
-	if provider == nil then
-		return nil, normalized
+	return nil
+end
+
+local function getLucideAsset(iconName, iconSize)
+	local normalizedName = normalizeIconName(iconName)
+	local lucide = getLucideLibrary()
+	if not lucide then
+		return nil, normalizedName
 	end
 
-	local candidates = {
-		normalized,
-		string.gsub(normalized, "-", "_"),
-		toPascalCase(normalized),
-		string.upper(string.sub(normalized, 1, 1)) .. string.sub(normalized, 2),
+	local requestedSize = tonumber(iconSize) or 24
+	requestedSize = math.max(1, math.floor(requestedSize + 0.5))
+	local cacheKey = normalizedName .. ":" .. tostring(requestedSize)
+	local cached = LucideState.AssetCache[cacheKey]
+	if cached then
+		return cached, normalizedName
+	end
+
+	-- lucide-roblox documents GetAsset as a dot function:
+	-- Lucide.GetAsset(iconName, iconSize)
+	local ok, asset = pcall(lucide.GetAsset, normalizedName, requestedSize)
+	if not ok or type(asset) ~= "table" then
+		return nil, normalizedName
+	end
+
+	local url = asset.Url
+	if type(url) ~= "string" or url == "" then
+		if type(asset.Id) == "number" then
+			url = "rbxassetid://" .. tostring(asset.Id)
+		else
+			return nil, normalizedName
+		end
+	end
+
+	local normalizedAsset = {
+		IconName = asset.IconName or normalizedName,
+		Id = asset.Id,
+		Url = url,
+		ImageRectOffset = asset.ImageRectOffset,
+		ImageRectSize = asset.ImageRectSize,
 	}
 
-	local function readContainer(container)
-		if type(container) ~= "table" then
-			return nil
-		end
-		for _, candidate in ipairs(candidates) do
-			local data = normalizeIconData(container[candidate])
-			if data then
-				return data
-			end
-		end
-		return nil
-	end
-
-	if type(provider) == "table" then
-		local direct = readContainer(provider)
-			or readContainer(provider.Icons)
-			or readContainer(provider.icons)
-			or readContainer(provider.Data)
-			or readContainer(provider.data)
-		if direct then
-			return direct, normalized
-		end
-
-		for _, methodName in ipairs({ "GetIcon", "getIcon", "Get", "get", "Resolve", "resolve" }) do
-			local method = provider[methodName]
-			if type(method) == "function" then
-				for _, candidate in ipairs(candidates) do
-					local ok, result = pcall(method, provider, candidate)
-					local data = ok and normalizeIconData(result) or nil
-					if not data then
-						ok, result = pcall(method, candidate)
-						data = ok and normalizeIconData(result) or nil
-					end
-					if data then
-						return data, normalized
-					end
-				end
-			end
-		end
-	elseif type(provider) == "function" then
-		for _, candidate in ipairs(candidates) do
-			local ok, result = pcall(provider, candidate)
-			local data = ok and normalizeIconData(result) or nil
-			if data then
-				return data, normalized
-			end
-		end
-	end
-
-	return nil, normalized
+	LucideState.AssetCache[cacheKey] = normalizedAsset
+	return normalizedAsset, normalizedName
 end
 
 -- Lightweight cleanup container for connections, tweens, threads, and temporary instances.
@@ -653,15 +613,22 @@ end
 local function makeIcon(parent, properties)
 	properties = properties or {}
 	local iconName = properties.Icon or properties.Name or "circle"
-	local iconData, normalizedName = resolveLucideIcon(iconName)
 	local color = properties.Color or properties.ImageColor3 or properties.TextColor3 or Theme.Text
 	local position = properties.Position or UDim2.fromOffset(0, 0)
 	local size = properties.Size or UDim2.fromOffset(18, 18)
 	local zIndex = properties.ZIndex or ((parent and parent.ZIndex or 1) + 1)
 	local rotation = properties.Rotation or 0
 	local visible = properties.Visible ~= false
+	local normalizedName = normalizeIconName(iconName)
+	local directImage = getDirectIconImage(iconName)
+	local lucideAsset = nil
 
-	if iconData then
+	if not directImage then
+		lucideAsset, normalizedName = getLucideAsset(normalizedName, getRequestedIconSize(size))
+	end
+
+	local image = directImage or (lucideAsset and lucideAsset.Url)
+	if image then
 		local icon = create("ImageLabel", {
 			Name = properties.InstanceName or "Icon",
 			Position = position,
@@ -669,7 +636,7 @@ local function makeIcon(parent, properties)
 			AnchorPoint = properties.AnchorPoint or Vector2.zero,
 			BackgroundTransparency = 1,
 			BorderSizePixel = 0,
-			Image = iconData.Image,
+			Image = image,
 			ImageColor3 = color,
 			ImageTransparency = properties.Transparency or properties.ImageTransparency or 0,
 			ScaleType = Enum.ScaleType.Fit,
@@ -678,14 +645,18 @@ local function makeIcon(parent, properties)
 			ZIndex = zIndex,
 			Parent = parent,
 		})
-		if typeof(iconData.ImageRectOffset) == "Vector2" then
-			icon.ImageRectOffset = iconData.ImageRectOffset
+
+		if lucideAsset then
+			if typeof(lucideAsset.ImageRectOffset) == "Vector2" then
+				icon.ImageRectOffset = lucideAsset.ImageRectOffset
+			end
+			if typeof(lucideAsset.ImageRectSize) == "Vector2" then
+				icon.ImageRectSize = lucideAsset.ImageRectSize
+			end
 		end
-		if typeof(iconData.ImageRectSize) == "Vector2" then
-			icon.ImageRectSize = iconData.ImageRectSize
-		end
-		icon:SetAttribute("LucideIcon", normalizedName)
-		return icon, true
+
+		icon:SetAttribute("LucideIcon", directImage and "custom-asset" or normalizedName)
+		return icon, lucideAsset ~= nil
 	end
 
 	local fallback = properties.Fallback or ICON_FALLBACKS[normalizedName] or "•"
@@ -4167,30 +4138,56 @@ function WindowMethods:Destroy()
 	end
 end
 
-function Library:SetIconProvider(provider)
-	IconProviderState.Provider = provider
-	IconProviderState.Attempted = provider ~= nil
+function Library:SetLucideLibrary(lucide)
+	if lucide ~= nil then
+		assert(isLucideLibrary(lucide), "SetLucideLibrary expects the table returned by lucide-roblox")
+	end
+
+	LucideState.Library = lucide
+	LucideState.Attempted = true
+	clearLucideCache()
 	return self
 end
 
-function Library:GetIconProvider()
-	return getLucideProvider()
+function Library:GetLucideLibrary()
+	return getLucideLibrary()
+end
+
+function Library:GetLucideAsset(iconName, iconSize)
+	local asset = getLucideAsset(iconName, iconSize)
+	return asset
 end
 
 function Library:ReloadLucide(sourceUrl)
-	IconProviderState.Provider = nil
-	IconProviderState.Attempted = false
-	return loadLucideProvider(sourceUrl or IconProviderState.SourceUrl)
+	LucideState.Library = nil
+	LucideState.Attempted = false
+	clearLucideCache()
+	return loadLucideLibrary(sourceUrl or LucideState.SourceUrl)
+end
+
+-- Backward-compatible aliases from v2.0.0. These now accept only the actual
+-- lucide-roblox library instead of attempting to infer arbitrary provider shapes.
+function Library:SetIconProvider(provider)
+	return self:SetLucideLibrary(provider)
+end
+
+function Library:GetIconProvider()
+	return self:GetLucideLibrary()
 end
 
 function Library:CreateWindow(config)
 	config = config or {}
-	if config.IconProvider ~= nil then
-		self:SetIconProvider(config.IconProvider)
+	if config.Lucide ~= nil then
+		self:SetLucideLibrary(config.Lucide)
+	elseif config.IconProvider ~= nil then
+		-- Compatibility with v2.0.0; the value must be a lucide-roblox library.
+		self:SetLucideLibrary(config.IconProvider)
 	elseif config.LucideUrl ~= nil then
 		self:ReloadLucide(config.LucideUrl)
-	elseif config.LoadLucide ~= false then
-		getLucideProvider()
+	elseif config.LoadLucide == false then
+		self:SetLucideLibrary(nil)
+	else
+		getLucideLibrary()
 	end
 	self._windowCounter += 1
 
@@ -6036,5 +6033,6 @@ end
 
 Library.Theme = Theme
 Library.LucideUrl = LUCIDE_SOURCE_URL
+Library.LucideDocumentation = "https://github.com/latte-soft/lucide-roblox"
 
 return Library

@@ -1,368 +1,178 @@
 <div align="center">
 
-# 🎵 Spotify UI Library
+# Spotify UI Library
 
-### A modern Roblox UI library written in Luau, styled after Spotify's look.
+A polished Roblox UI library written in Luau, inspired by Spotify's desktop and mobile interfaces.
 
-<img alt="Version" src="https://img.shields.io/badge/version-1.9.0-1DB954?style=for-the-badge">
-<img alt="Luau" src="https://img.shields.io/badge/Luau-Roblox-00A2FF?style=for-the-badge&logo=roblox">
-<img alt="Dependencies" src="https://img.shields.io/badge/dependencies-none-1DB954?style=for-the-badge">
-
-<br><br>
+![Version](https://img.shields.io/badge/version-2.0.1-1DB954?style=for-the-badge)
+![Language](https://img.shields.io/badge/Luau-Roblox-00A2FF?style=for-the-badge)
+![Theme](https://img.shields.io/badge/theme-Spotify-121212?style=for-the-badge)
 
 </div>
 
----
+## Update logs
 
-## ✨ About
+### v2.0.1
 
-Spotify UI Library is a Roblox interface library built around a simple API, a consistent look, and code that's easy to maintain. You get a full window with sidebar, tabs, sections, interactive components, notifications, responsive scaling, a configurable keybind, a Settings side panel, global search, and a Spotify-inspired mini player.
+#### Fixed
 
----
+- Replaced the generic icon-provider guessing logic with the documented lucide-roblox API.
+- Named icons now resolve through `Lucide.GetAsset(iconName, iconSize)`.
+- `Url`, `ImageRectSize`, and `ImageRectOffset` are applied exactly as returned by lucide-roblox.
+- Added per-icon and per-size asset caching.
+- Invalid icon identifiers safely use fallback glyphs.
 
-# 📜 Update Logs
+#### Added
 
-Changes for every version, newest on top.
+- `Library:SetLucideLibrary` and `Library:GetLucideLibrary`.
+- `Library:GetLucideAsset` for direct access to the normalized Lucide asset metadata.
+- `Library.LucideDocumentation`.
+- `Lucide` as the preferred `CreateWindow` injection option.
 
-## `v1.9.0` — 07/19/2026
+#### Compatibility
 
-### ✨ Added
-
-- Central search bar on the topbar, inspired by Spotify desktop.
-- Instant results for tabs, sections and components.
-- Automatic navigation to the found component, including content inside Settings.
-- New APIs: `FocusSearch`, `SetSearchQuery`, `GetSearchQuery`, `SetSearchVisible`.
-- New `ShowSearch`, `SearchPlaceholder` and `MaxSearchResults` options in `CreateWindow`.
-
-### 🔧 Changed
-
-- Settings panel redesigned in the style of Spotify's Now Playing panel.
-- Settings now has a big hero section with the experience's image, name and creator.
-- The panel now only occupies the window's content area and keeps an inner margin on all four edges.
-- The old scale controls on the topbar are hidden; scaling still lives on the bottom bar and the mini player.
-
-### 🐛 Fixed
-
-- Settings panel covering the sidebar during the animation.
-- Hero and search result strokes getting clipped by `ClipsDescendants`.
-- Stale search result listeners sticking around after a new query.
+- `SetIconProvider`, `GetIconProvider`, and the `IconProvider` window option remain available as aliases.
 
 <details>
-<summary><strong>v1.8.0 — 07/18/2026</strong></summary>
+<summary><strong>v2.0.0</strong></summary>
 
-### 🔧 Changed
+#### Added
 
-- Mini player shrank further to `300 × 156`, still keeping controls, timer and dragging.
-- Switching between the full window and the mini player now uses atomic visibility: every layer disappears or comes back on the same frame.
-- The Settings panel animation now uses horizontal offset only, dropping the `CanvasGroup` and the internal fade.
+- Native Lucide provider adapter using the requested `Lucide.luau` source.
+- Lucide icons for tabs, search, dropdowns, buttons, window controls, Settings, notifications, and the mini player.
+- `Library:SetIconProvider`, `Library:GetIconProvider`, and `Library:ReloadLucide`.
+- First-class `SearchController` with owned state, searchable-entry registry, and cleanup.
+- `MiniDarkOverlay` now has a 16 px `UICorner`.
 
-### 🐛 Fixed
+#### Changed
 
-- Window content disappearing at different times during minimize.
-- Empty window rectangle staying visible during the transition.
-- Mini player stroke losing its rounded corners.
-- Settings panel getting partially clipped or split while sliding in.
-- Settings panel border turning square mid-tween.
+- Entire ModuleScript and example script are now written in English.
+- Unknown tab icons now use Lucide's `circle` icon instead of generated text initials.
+- Search focus, clear, visibility, query, result rendering, resizing, and component metadata registration are routed through the search controller.
+- Search no longer scans UI descendants during queries; components register searchable metadata natively at creation time.
+- Bottom scale controls are explicitly made visible after being reparented.
+
+#### Compatibility
+
+- Existing public component APIs remain compatible.
+- Direct Roblox image URLs and asset IDs remain supported as tab icons.
+- Fallback glyphs keep the UI usable when the remote Lucide provider cannot load.
 
 </details>
 
 <details>
-<summary><strong>v1.7.0 — 07/18/2026</strong></summary>
+<summary><strong>v1.9.0</strong></summary>
 
-### ✨ Added
-
-- Compact, draggable mini player.
-- Default starting position in the bottom-right corner of the screen.
-- New API: `Window:ResetMiniPlayerPosition()`.
-- New `Multi = true` mode for Dropdown.
-- New `Select`, `Deselect`, `Clear` and `IsMulti` methods for multi-select dropdowns.
-- Visual `✓` indicator on selected options.
-
-### 🔧 Changed
-
-- The Settings panel now slides entirely from within the window's own internal viewport.
-- The mini player shrank from `520 × 270` to `300 × 156`.
-- Minimize/restore transitions now run in two synced phases.
-- Mini player position gets recalculated and clamped when the viewport or scale changes.
-- Selected dropdown options use an inner stroke so rounded corners stay intact.
-
-### 🐛 Fixed
-
-- Settings backdrop covering the window's outer rounded corners.
-- Square stroke on the Settings side panel.
-- Settings panel looking like it was sliding in from outside the UI.
-- Window elements disappearing at different times during minimize.
-- Selected Dropdown option border getting clipped or turning square.
-- Dropdown selector hover removing the green stroke while the list was still open.
-- Notifications overlapping the mini player in the bottom-right corner.
+- Added the Spotify-style global search bar.
+- Redesigned the Settings panel.
 
 </details>
 
 <details>
-<summary><strong>v1.6.0 — 07/18/2026</strong></summary>
+<summary><strong>v1.8.0</strong></summary>
 
-### ✨ Added
-
-- Minimize button next to the close button.
-- Responsive mini player inspired by Spotify's mobile popup.
-- Experience thumbnail as the popup's background, with a dark gradient overlay.
-- Name, creator, elapsed time, total duration (or a `No limit` label when the limit is disabled) in the mini player.
-- Expand button to go back to the full window.
-- New APIs: `SetMinimized`, `ToggleMinimized`, `IsMinimized`.
-- Settings side panel sliding in from the right.
-- Panel header with the experience's image and name.
-- Panel can be closed via its close button, an outside click, or the API.
-- New APIs: `SetSettingsPanelVisible`, `ToggleSettingsPanel`, `IsSettingsPanelVisible`.
-- New `Minimized` option in `CreateWindow`.
-
-### 🔧 Changed
-
-- The Settings tab no longer replaces the main content area.
-- Sections added to Settings now render inside the side panel's scrollable area.
-- Mini player scale controls reuse the same function as the bottom bar controls, so there's no divergent logic.
-- `SetGameInfo` now keeps the Now Playing bar, the mini player and the Settings header in sync.
-- AutoScale now computes separate fit scales for the full window and the popup, while still respecting the user's chosen scale value.
-
-### 🐛 Fixed
-
-- Possible overlap between the side panel and the Now Playing bar.
-- Settings components ending up behind the panel surface due to a `ZIndex` mismatch.
-- Minimize/restore transitions holding onto stale tweens or connections.
-- Long game names overflowing the mini player.
-- Popup timeline not following `ResetSessionTimer` or changes to the elapsed time.
-- Clicks on empty panel areas bleeding through to the backdrop and closing Settings.
-- Panel tween completion connection staying alive after the animation finished.
+- Fixed synchronized minimize transitions.
+- Reduced and refined the mini player.
 
 </details>
 
 <details>
-<summary><strong>v1.5.0 — 07/17/2026</strong></summary>
+<summary><strong>v1.7.0</strong></summary>
 
-### ✨ Added
-
-- Central scale control group on the Now Playing bar, inspired by Spotify's rewind/play/forward buttons.
-- Percentage indicator with a white background at the center of the group, staying readable against the dark theme.
-- Green hover state on the scale-down and scale-up buttons.
-- Each notification now has its own dedicated shadow.
-
-### 🔧 Changed
-
-- The `-`, percentage and `+` controls moved from the topbar down to the bottom bar.
-- The topbar now reserves more room for the tab title and only keeps the close button.
-- Game name and creator width is now clamped before the central controls to prevent overlap.
-- Notifications still stack in the bottom-right corner, but the layout now only manages transparent slots.
-
-### 🐛 Fixed
-
-- Notification border getting clipped by `ClipsDescendants` and the `CanvasGroup`.
-- Square corners showing up when the gradient, accent stripe or duration bar reached the edge of the toast.
-- Notification `UIStroke` blending visually with the progress bar.
-- Opacity tween keeping stale references after a notification was dismissed early.
+- Added draggable mini player positioning.
+- Added multi-select dropdowns.
 
 </details>
 
-<details>
-<summary><strong>v1.4.0 — 07/17/2026</strong></summary>
+## Features
 
-### 🔧 Changed
+- Single ModuleScript with no required Roblox packages.
+- Direct lucide-roblox integration through its documented `GetAsset` API, with automatic loading and fallback glyphs.
+- Responsive window scaling based on `CurrentCamera.ViewportSize`.
+- Sidebar tabs, sections, buttons, toggles, sliders, dropdowns, inputs, labels, paragraphs, and keybind pickers.
+- Single-select and multi-select dropdowns.
+- Native search controller and metadata registry integrated into the window lifecycle.
+- Right-side Settings panel inspired by Spotify's Now Playing panel.
+- Draggable mini player in the bottom-right corner.
+- Experience information and session timeline.
+- Bottom-right toast notifications.
+- Centralized cleanup for connections, tweens, tasks, and temporary instances.
+- Every `UIStroke` uses `Thickness = 2`.
 
-- All `UIStroke` instances across the library now use `Thickness = 2`.
-- Notifications are now pinned to the bottom-right corner of the screen.
-- New notifications stack upward, keeping the newest one closest to the bottom.
-- Notification animations now run on a separate slot so `UIListLayout` and `Position` tweens stop fighting each other.
-- Tab hover keeps the button size fixed and only animates background, text and stroke, so it no longer leaks outside the `ScrollingFrame`.
-- The notification duration bar is now inset inside the card instead of touching the outer edge.
+## Quick Start
 
-### 🐛 Fixed
+```lua
+local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/SpotifyUILibrary.lua"))()
 
-- Tab borders getting clipped by the sidebar's `ScrollingFrame` during hover/selection.
-- Tab stroke only showing part of the sides at certain scales.
-- Notification borders blending visually with the side accent stripe and the duration bar.
-- Notification `UIStroke` getting cut off on rounded corners.
-- Notification enter/exit tweens getting overridden by `UIListLayout`.
+local Window = Library:CreateWindow({
+    Title = "My Menu",
+    Keybind = Enum.KeyCode.RightShift,
+})
+```
 
-</details>
+## Lucide icons
 
-<details>
-<summary><strong>v1.3.0 — 07/17/2026</strong></summary>
+The library uses the API documented by [`latte-soft/lucide-roblox`](https://github.com/latte-soft/lucide-roblox). The only difference is how the library is loaded: instead of `require`, Spotify UI evaluates the single-file build with the requested loader.
 
-### ✨ Added
+```lua
+local Lucide = loadstring(game:HttpGet(
+    "https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/Libs/Lucide.luau"
+))()
+```
 
-- Session timeline on the bottom bar, inspired by Spotify's progress bar.
-- `mm:ss` / `h:mm:ss` counter showing how long the window has been open.
-- New config options: `ShowSessionTimer`, `SessionTimerDuration`, `SessionTimerText`.
-- New APIs: `GetSessionElapsed`, `ResetSessionTimer`, `SetSessionTimerVisible`.
-- Hover tween on the timeline plus a knob that follows progress.
+Internally, every named icon is resolved with the official API:
 
-### 🔧 Changed
+```lua
+local Asset = Lucide.GetAsset("server", 48)
 
-- The Now Playing bar grows its height automatically when the timeline is visible.
-- The outer shadow is smaller and softer now.
-- The "current experience" indicator repositions itself so it doesn't collide with the timeline.
-- Layout goes back to its compact height when the timer is hidden.
+print(Asset.IconName)
+print(Asset.Url)
+print(Asset.ImageRectSize)
+print(Asset.ImageRectOffset)
+```
 
-### 🐛 Fixed
+Spotify UI applies `Asset.Url`, `Asset.ImageRectSize`, and `Asset.ImageRectOffset` to its own `ImageLabel`, which preserves the library's existing layout and tween system.
 
-- Square outer corners caused by opaque children inside a container that has `UICorner`.
-- Uneven outer border caused by a larger Frame filled in behind the window.
-- Inconsistent stroke thickness during scale animations.
-- Sidebar top-left, topbar top-right and Now Playing bottom corners are now drawn separately.
-- Stroke, shadow and window now stay in sync while dragging, resizing or changing scale.
-- Timer connection now disconnects automatically on `Window:Destroy()`.
+Use Lucide identifiers directly:
 
-</details>
+```lua
+local HomeTab = Window:CreateTab({
+    Name = "Home",
+    Icon = "house",
+})
 
-<details>
-<summary><strong>v1.2.0 — 07/17/2026</strong></summary>
+local SettingsTab = Window:CreateTab({
+    Name = "Preferences",
+    Icon = "settings",
+})
+```
 
-### ✨ Added
+The identifiers must exist in `Lucide.IconNames`. Invalid names fall back to a readable glyph instead of breaking the interface.
 
-- Window open/close animation with fade + scale.
-- Fade/slide transition when switching tabs.
-- Subtle gradients on background, sidebar, topbar, sections, cards and bottom bar.
-- Animated hover/click/press states on components.
-- Pulse effect on the current experience indicator.
-- New `Animations` and `AnimateOnStart` options in `CreateWindow`.
+### Loading and injection
 
-### 🔧 Changed
+Automatic loading is enabled by default:
 
-- Cards and sections got clearer visual hierarchy, spacing and corner radii.
-- Toggle now has a spring animation and shadow on the knob.
-- Dropdown expands more smoothly with better focus feedback.
-- Inputs and Keybind Picker now animate border/background on focus.
-- Notifications enter/exit with fade + slide.
-- Scrollbars are thinner and moved inward.
+```lua
+local Window = Library:CreateWindow({
+    LoadLucide = true,
+    LucideUrl = Library.LucideUrl,
+})
+```
 
-### 🐛 Fixed
+You can load the same source yourself and inject the returned library:
 
-- Outer stroke getting clipped by `ClipsDescendants`.
-- Wrong inner corners on the sidebar next to the Now Playing bar.
-- Dividers touching the window's rounded edges.
-- Page scrollbar showing up on top of the right border.
-- Dropdown `UIStroke` getting cut off while expanding/collapsing.
-- Conflict between the responsive scale tween and the open/close tween.
-- Slider staying in a hover state after dragging outside the card.
+```lua
+local Lucide = loadstring(game:HttpGet(Library.LucideUrl))()
+Library:SetLucideLibrary(Lucide)
 
-</details>
+local CurrentLucide = Library:GetLucideLibrary()
+local SearchAsset = Library:GetLucideAsset("search", 24)
+```
 
-<details>
-<summary><strong>v1.1.0 — 07/17/2026</strong></summary>
+`SetIconProvider` and `GetIconProvider` remain as compatibility aliases, but they now expect the actual lucide-roblox table rather than an arbitrary provider shape.
 
-### ✨ Added
-
-- Automatic, separate `Settings` tab at the bottom of the sidebar.
-- New `Keybind Picker` component.
-- Default `RightShift` keybind to open/close the UI.
-- Bottom "Now Playing" bar showing experience info.
-- Icons on sidebar tabs.
-- Green indicator on the selected tab.
-- Destroy methods for components, sections and tabs.
-- New APIs: `SetGameInfo`, `SetNowPlayingVisible`, `SetKeybind`, `GetKeybind`.
-
-### 🔧 Changed
-
-- Close button now defaults to `CloseBehavior = "Hide"`.
-- Sidebar spacing and hierarchy now sit closer to Spotify's actual look.
-- Responsive layout now correctly reserves space for the bottom bar.
-- Sidebar width adapts to smaller viewports.
-
-### 🐛 Fixed
-
-- Stale dropdown option connections when rebuilding the list.
-- Elements overflowing past or ending up behind the bottom bar.
-- Wrong drag behavior when the window was scaled.
-- Shadow misaligned with window position/size/scale.
-- Notifications and temp tasks sticking around after destroying the UI.
-- Dangling references to already-destroyed components, tabs and sections.
-- Keybind firing while capturing a key or typing in a `TextBox`.
-
-</details>
-
-<details>
-<summary><strong>v1.0.0 — First release</strong></summary>
-
-### ✨ Added
-
-- Main window with Spotify theme.
-- Sidebar and tab system.
-- Sections.
-- Button, Toggle, Slider, Dropdown, Input, Label and Paragraph.
-- Notifications.
-- Manual and automatic scaling.
-- Mouse and touch drag support.
-- Internal connection cleanup system.
-
-</details>
-
----
-
-## 📚 Table of Contents
-
-- [Features](#-features)
-- [Quick Start](#-quick-start)
-- [API Structure](#-api-structure)
-- [Window Setup](#-window-setup)
-- [Tabs and Sections](#-tabs-and-sections)
-- [Components](#-components)
-- [Global Search](#-global-search)
-- [Settings and Keybind](#-settings-and-keybind)
-- [Now Playing Bar](#-now-playing-bar)
-- [Mini Player](#-mini-player)
-- [Notifications](#-notifications)
-- [Responsiveness and Scaling](#-responsiveness-and-scaling)
-- [Theme](#-theme)
-- [Cleanup and Destruction](#-cleanup-and-destruction)
-- [Full Example](#-full-example)
-- [Common Issues](#-common-issues)
-
----
-
-## 🚀 Features
-
-- Dark Spotify-inspired look.
-- Outer corners drawn with selective surfaces, so no square edges leak through `UICorner`.
-- Real outline via `UIStroke`, independent from the window's clipping. Every stroke uses `Thickness = 2`.
-- Subtle gradients, visual elevation, hover/press states.
-- Animations for opening, closing and switching tabs.
-- Sidebar with icon, label and active-tab indicator.
-- Search bar on the topbar, with instant results and navigation straight to the component.
-- Automatic `Settings` tab, opened as a side panel inspired by Spotify desktop's Now Playing panel.
-- Configurable keybind to open/close the interface.
-- Bottom bar showing the experience's icon, name and creator.
-- Compact, draggable mini player in the bottom-right corner, with a thumbnail, timer and scale controls.
-- Minimize button on the topbar and an expand button on the compact popup.
-- Session timer with a progress bar styled after Spotify's timeline.
-- Draggable window (mouse and touch).
-- Manual scaling via the center controls on the bottom bar (`-`, percentage, `+`).
-- Automatic scaling based on `ViewportSize`.
-- Works across different resolutions and aspect ratios.
-- Auto-scrolling tabs and pages.
-- Sections with automatic height.
-- Components expose methods to update themselves at runtime.
-- Stacked, temporary notifications in the bottom-right corner with an internal progress bar.
-- Cleans up connections, threads, tweens and instances when the UI is destroyed.
-- Zero external dependencies.
-
-### Available components
-
-| Component | Description |
-|---|---|
-| `Window` | Main interface window. |
-| `Tab` | Sidebar navigation item. |
-| `Section` | Visual grouping for components. |
-| `Button` | Runs an action on click. |
-| `Toggle` | Switches on/off. |
-| `Slider` | Picks a numeric value. |
-| `Dropdown` | Picks one or multiple options from a list. |
-| `Input` | Text input field. |
-| `Label` | Plain text display. |
-| `Paragraph` | Title + multi-line content. |
-| `Keybind Picker` | Captures and changes a key. |
-| `Notification` | Shows a temporary toast. |
-
----
-
-## ⚡ Quick Start
+## Complete example
 
 ```lua
 local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/SpotifyUILibrary.lua"))()
@@ -370,1087 +180,293 @@ local Library = loadstring(game:HttpGet("https://raw.githubusercontent.com/spect
 local Window = Library:CreateWindow({
     Title = "My Menu",
     Subtitle = "Spotify UI Library",
-})
-
-local HomeTab = Window:CreateTab({
-    Name = "Home",
-    Icon = "⌂",
-})
-
-local MainSection = HomeTab:CreateSection("Main controls")
-
-MainSection:CreateButton({
-    Text = "Click me",
-    Description = "Runs a simple action.",
-    Callback = function()
-        print("Button pressed")
-    end,
-})
-
-MainSection:CreateToggle({
-    Text = "Music enabled",
-    Default = true,
-    Callback = function(enabled)
-        print("Music:", enabled)
-    end,
-})
-
-MainSection:CreateSlider({
-    Text = "Volume",
-    Min = 0,
-    Max = 100,
-    Default = 70,
-    Suffix = "%",
-    Callback = function(value)
-        print("Volume:", value)
-    end,
-})
-```
-
----
-
-## 🧱 API Structure
-
-The main hierarchy looks like this:
-
-```text
-Library
-└── Window
-    ├── Tab
-    │   └── Section
-    │       └── Components
-    ├── Automatic Settings Tab
-    ├── Now Playing
-    └── Notifications
-```
-
-Example:
-
-```lua
-local Window = Library:CreateWindow({ Title = "Menu" })
-local Tab = Window:CreateTab("Home")
-local Section = Tab:CreateSection("Gameplay")
-local Toggle = Section:CreateToggle({ Text = "Auto Farm" })
-```
-
-You can also create components directly on a tab — the library will just create an internal untitled section for you:
-
-```lua
-local AboutTab = Window:CreateTab("About")
-
-AboutTab:CreateLabel({
-    Text = "Built with Spotify UI Library",
-})
-```
-
----
-
-## 🪟 Window Setup
-
-```lua
-local Window = Library:CreateWindow({
-    Name = "MyInterface",
-    Title = "My Menu",
-    Subtitle = "Spotify UI Library",
     Size = Vector2.new(940, 590),
     Scale = 1,
-    MinScale = 0.65,
-    MaxScale = 1.5,
     AutoScale = true,
-    MaxAutoScale = 1.2,
-    ViewportMargin = 20,
+    Animations = true,
     Keybind = Enum.KeyCode.RightShift,
-    Minimized = false,
     ShowSearch = true,
     SearchPlaceholder = "What do you want to find?",
-    MaxSearchResults = 6,
     ShowNowPlaying = true,
     ShowSessionTimer = true,
     SessionTimerDuration = 3600,
-    SessionTimerText = "Time open",
-    CloseBehavior = "Hide",
-    Animations = true,
-    AnimateOnStart = true,
-    DisplayOrder = 50,
-    GameName = "My experience",
-    GameCreator = "My studio",
-    GameIcon = "rbxassetid://123456789",
 })
-```
 
-### `CreateWindow` options
-
-| Property | Type | Default | Description |
-|---|---:|---:|---|
-| `Name` | `string` | Auto | `ScreenGui` name. |
-| `Title` | `string` | `Spotify UI` | Title shown on the sidebar. |
-| `Subtitle` | `string` | `Roblox UI Library` | Subtitle shown below the title. |
-| `Parent` | `Instance` | `PlayerGui` | Custom parent for the `ScreenGui`. |
-| `Size` | `Vector2` | `Vector2.new(940, 590)` | Base window size. |
-| `Scale` | `number` | `1` | Initial manual scale. |
-| `MinScale` | `number` | `0.65` | Lowest allowed scale. |
-| `MaxScale` | `number` | `1.5` | Highest allowed scale. |
-| `AutoScale` | `boolean` | `true` | Auto-adjusts the window to the viewport. |
-| `MaxAutoScale` | `number` | `1.2` | Cap for the automatic scale. |
-| `ViewportMargin` | `number` | `20` | Margin kept between the window and the screen edge. |
-| `Keybind` | `Enum.KeyCode`, `string`, `false` | `RightShift` | Key used to open/close the UI. Pass `false` to disable it. |
-| `Minimized` | `boolean` | `false` | Starts directly in the mini player. |
-| `ShowSearch` | `boolean` | `true` | Shows the search bar on the topbar. |
-| `SearchPlaceholder` | `string` | `What do you want to find?` | Placeholder shown in the search field. |
-| `MaxSearchResults` | `number` | `6` | Maximum number of results shown at once. |
-| `ShowNowPlaying` | `boolean` | `true` | Shows the bottom bar for the experience. |
-| `ShowSessionTimer` | `boolean` | `true` | Shows the timeline with elapsed time since the window was created. |
-| `SessionTimerDuration` | `number` or `false` | `3600` | Duration in seconds used as the visual scale. Pass `false` to show `No limit` and keep the bar without percentage progress. |
-| `SessionTimerText` | `string` | `Time open` | Text shown on the right side of the timeline. |
-| `CloseBehavior` | `"Hide"` or `"Destroy"` | `"Hide"` | What the close button does. |
-| `Animations` | `boolean` | `true` | Turns visual tweens on/off for the window and tabs. |
-| `AnimateOnStart` | `boolean` | `true` | Controls the entry animation when the window is created. |
-| `DisplayOrder` | `number` | `50` | Display order of the `ScreenGui`. |
-| `GameName` | `string` | Auto | Name shown on the bottom bar. |
-| `GameCreator` | `string` | Auto | Creator shown on the bottom bar. |
-| `GameIcon` | `string` | Auto | Asset or thumbnail used as icon. |
-
-> [!NOTE]
-> The size you pass in gets clamped internally so windows can't end up too small or too big. Width is clamped between `720` and `1280`, height between `460` and `820`.
-
-### Window methods
-
-| Method | Returns | Description |
-|---|---|---|
-| `Window:CreateTab(config)` | `Tab` | Creates a new tab. |
-| `Window:SelectTab(tabOrName)` | `boolean` | Selects a tab by object or name. |
-| `Window:GetSettingsTab()` | `Tab` | Returns the automatic Settings tab. |
-| `Window:FocusSearch()` | `Window` | Focuses the search field. |
-| `Window:SetSearchQuery(query)` | `Window` | Sets the search query and refreshes the results. |
-| `Window:GetSearchQuery()` | `string` | Returns the current search text. |
-| `Window:SetSearchVisible(visible)` | `Window` | Shows or hides the search bar. |
-| `Window:SetKeybind(keyCode)` | `Window` | Changes or removes the window's keybind. |
-| `Window:GetKeybind()` | `Enum.KeyCode?` | Returns the current keybind. |
-| `Window:SetScale(scale)` | `Window` | Changes the manual scale. |
-| `Window:GetScale()` | `number` | Returns the manual scale. |
-| `Window:GetEffectiveScale()` | `number` | Returns the final scale actually applied after AutoScale. |
-| `Window:SetAutoScale(enabled)` | `Window` | Toggles automatic scaling. |
-| `Window:SetSize(width, height)` | `Window` | Changes the base window size. Also accepts a `Vector2`. |
-| `Window:GetSize()` | `Vector2` | Returns the current base size. |
-| `Window:SetTitle(title, subtitle?)` | `Window` | Updates title and, optionally, subtitle. |
-| `Window:SetVisible(visible, instant?)` | `Window` | Shows/hides the UI, animated by default. |
-| `Window:ToggleVisible()` | `boolean` | Toggles visibility, returns the new state. |
-| `Window:SetMinimized(minimized, instant?)` | `Window` | Switches between the full window and the mini player. |
-| `Window:ToggleMinimized()` | `boolean` | Toggles minimized mode and returns the new state. |
-| `Window:IsMinimized()` | `boolean` | Tells you whether the mini player is active. |
-| `Window:ResetMiniPlayerPosition()` | `Window` | Repositions the mini player back to the bottom-right corner. |
-| `Window:SetSettingsPanelVisible(visible, instant?)` | `Window` | Opens or closes the Settings side panel. |
-| `Window:ToggleSettingsPanel()` | `boolean` | Toggles the side panel and returns the new state. |
-| `Window:IsSettingsPanelVisible()` | `boolean` | Tells you whether the Settings panel is open. |
-| `Window:SetGameInfo(config)` | `Window` | Updates name, creator and icon on the bottom bar. |
-| `Window:SetNowPlayingVisible(visible)` | `Window` | Shows/hides the bottom bar. |
-| `Window:SetSessionTimerVisible(visible)` | `Window` | Shows/hides the timeline and recalculates the bottom bar height. |
-| `Window:GetSessionElapsed()` | `number` | Returns how many seconds the window has been open. |
-| `Window:ResetSessionTimer()` | `Window` | Resets the timer and its visual progress. |
-| `Window:Notify(config)` | `Notification?` | Shows a notification. |
-| `Window:Destroy()` | — | Destroys the window and cleans up its resources. |
-
-### Window control examples
-
-```lua
-Window:SetScale(1.15)
-Window:SetSize(1000, 640)
-Window:SetTitle("New title", "New subtitle")
-Window:SetAutoScale(true)
-Window:SetVisible(false)
-Window:SetVisible(true)
-```
-
----
-
-## 🧭 Tabs and Sections
-
-### Creating a tab
-
-The simple way:
-
-```lua
-local HomeTab = Window:CreateTab("Home")
-```
-
-With a text icon:
-
-```lua
-local MusicTab = Window:CreateTab({
-    Name = "Music",
-    Icon = "♫",
+local Home = Window:CreateTab({
+    Name = "Home",
+    Icon = "house",
 })
-```
 
-With an image icon:
+local General = Home:CreateSection("General")
 
-```lua
-local InventoryTab = Window:CreateTab({
-    Name = "Inventory",
-    Icon = "rbxassetid://123456789",
-    IconColor = Library.Theme.Text,
-})
-```
-
-### Tab options
-
-| Property | Type | Description |
-|---|---:|---|
-| `Name` | `string` | Tab name. |
-| `Icon` | `string` | Symbol, text, or image asset. |
-| `IconColor` | `Color3` | Initial icon color. |
-
-The library auto-picks some icons for common names like `Home`, `About`, `Player`, `Music` and `Settings`.
-
-### Tab methods
-
-```lua
-Tab:Select()
-Tab:Destroy()
-Tab:CreateSection("Section name")
-```
-
-Every component creation method can also be called directly on a tab:
-
-```lua
-Tab:CreateButton({...})
-Tab:CreateToggle({...})
-Tab:CreateSlider({...})
-Tab:CreateDropdown({...})
-Tab:CreateInput({...})
-Tab:CreateLabel({...})
-Tab:CreateParagraph({...})
-Tab:CreateKeybindPicker({...})
-```
-
-### Creating a section
-
-```lua
-local Section = HomeTab:CreateSection("Main controls")
-```
-
-For an untitled section:
-
-```lua
-local Section = HomeTab:CreateSection(nil)
-```
-
-To destroy it:
-
-```lua
-Section:Destroy()
-```
-
----
-
-## 🧩 Components
-
-Every component returns a control object. All of them expose:
-
-```lua
-Component:SetVisible(true)
-Component:IsDestroyed()
-Component:Destroy()
-```
-
-### Button
-
-```lua
-local Button = Section:CreateButton({
-    Text = "Run action",
-    Description = "Optional button description.",
+General:CreateButton({
+    Text = "Notify me",
+    Description = "Displays a toast notification.",
     Callback = function()
-        print("Executed")
+        Window:Notify({
+            Title = "Done",
+            Content = "The action completed successfully.",
+        })
     end,
 })
-```
 
-Methods:
-
-```lua
-Button:SetText("New text")
-Button:Fire()
-Button:SetVisible(false)
-Button:Destroy()
-```
-
----
-
-### Toggle
-
-```lua
-local Toggle = Section:CreateToggle({
-    Text = "Music enabled",
-    Description = "Turns the game music on/off.",
+General:CreateToggle({
+    Text = "Enabled",
     Default = true,
     Callback = function(enabled)
         print(enabled)
     end,
 })
+
+General:CreateSlider({
+    Text = "Volume",
+    Min = 0,
+    Max = 100,
+    Default = 70,
+    Suffix = "%",
+})
+
+General:CreateDropdown({
+    Text = "Effects",
+    Options = { "Bloom", "Shadows", "Particles" },
+    Multi = true,
+    Default = { "Bloom", "Shadows" },
+})
 ```
 
-Methods:
+## Window options
+
+| Option | Type | Default | Description |
+|---|---|---|---|
+| `Title` | `string` | `Spotify UI` | Window title. |
+| `Subtitle` | `string` | `Roblox UI Library` | Sidebar subtitle. |
+| `Size` | `Vector2` | `Vector2.new(940, 590)` | Base window size. |
+| `Scale` | `number` | `1` | User scale. |
+| `MinScale` | `number` | `0.65` | Minimum scale. |
+| `MaxScale` | `number` | `1.5` | Maximum scale. |
+| `AutoScale` | `boolean` | `true` | Fits the interface to the viewport. |
+| `Animations` | `boolean` | `true` | Enables tweens. |
+| `Keybind` | `Enum.KeyCode` | `RightShift` | Shows or hides the UI. |
+| `ShowSearch` | `boolean` | `true` | Shows the top search bar. |
+| `SearchPlaceholder` | `string` | `What do you want to find?` | Search placeholder. |
+| `MaxSearchResults` | `number` | `6` | Maximum visible results. |
+| `ShowNowPlaying` | `boolean` | `true` | Shows the bottom experience bar. |
+| `ShowSessionTimer` | `boolean` | `true` | Shows the session timeline. |
+| `SessionTimerDuration` | `number/false` | `3600` | Visual timeline duration. Use `false` for no limit. |
+| `Minimized` | `boolean` | `false` | Starts in mini-player mode. |
+| `LoadLucide` | `boolean` | `true` | Automatically loads Lucide. |
+| `LucideUrl` | `string` | `Library.LucideUrl` | Custom Lucide source URL. |
+| `Lucide` | `table` | `nil` | Table returned by the lucide-roblox loadstring. |
+| `IconProvider` | `table` | `nil` | Deprecated compatibility alias for `Lucide`. |
+
+## Tabs and sections
 
 ```lua
-Toggle:Set(true)
-Toggle:Set(false, false) -- changes value without firing the callback
-print(Toggle:Get())
+local Tab = Window:CreateTab({
+    Name = "Player",
+    Icon = "music-2",
+})
+
+local Section = Tab:CreateSection("Playback")
 ```
 
----
+A string is still accepted:
+
+```lua
+local Tab = Window:CreateTab("Home")
+```
+
+## Components
+
+### Button
+
+```lua
+Section:CreateButton({
+    Text = "Run action",
+    Description = "Optional secondary text.",
+    Callback = function()
+    end,
+})
+```
+
+### Toggle
+
+```lua
+local Toggle = Section:CreateToggle({
+    Text = "Enabled",
+    Default = false,
+    Callback = function(value)
+    end,
+})
+
+Toggle:SetValue(true)
+print(Toggle:GetValue())
+```
 
 ### Slider
 
 ```lua
 local Slider = Section:CreateSlider({
-    Text = "Volume",
+    Text = "Speed",
     Min = 0,
     Max = 100,
-    Default = 70,
+    Default = 50,
     Increment = 1,
     Suffix = "%",
-    Callback = function(value)
-        print(value)
-    end,
 })
+
+Slider:SetValue(75)
 ```
-
-Methods:
-
-```lua
-Slider:SetValue(50)
-Slider:SetValue(80, false) -- changes value without firing the callback
-print(Slider:GetValue())
-```
-
----
 
 ### Dropdown
-
-#### Single select
 
 ```lua
 local Dropdown = Section:CreateDropdown({
     Text = "Quality",
-    Options = { "Low", "Medium", "High", "Ultra" },
+    Options = { "Low", "Medium", "High" },
     Default = "High",
-    Placeholder = "Select",
-    Callback = function(value)
-        print(value)
-    end,
 })
 ```
 
-#### Multi-select
-
-Turn on `Multi = true`. In this mode, `Default`, `SetValue`, `GetValue` and the callback all work with a list.
+Multi-select:
 
 ```lua
-local Effects = Section:CreateDropdown({
+local Dropdown = Section:CreateDropdown({
     Text = "Effects",
-    Options = { "Bloom", "Shadows", "Particles", "Reflections" },
+    Options = { "Bloom", "Shadows", "Particles" },
     Multi = true,
     Default = { "Bloom", "Shadows" },
-
     Callback = function(selected)
         print(table.concat(selected, ", "))
     end,
 })
+
+Dropdown:Select("Particles")
+Dropdown:Deselect("Bloom")
+Dropdown:Clear()
 ```
-
-Selected options get a rounded inner stroke and a `✓` indicator. The menu stays open so you can pick more than one.
-
-Methods:
-
-```lua
-Dropdown:SetValue("Ultra")
-Dropdown:SetValue("Medium", false)
-print(Dropdown:GetValue())
-
-Effects:SetValue({ "Bloom", "Reflections" })
-Effects:Select("Particles")
-Effects:Deselect("Bloom")
-Effects:Clear()
-print(Effects:IsMulti())
-
-Dropdown:SetOptions({ "Option A", "Option B", "Option C" })
-Dropdown:SetOptions({ "New A", "New B" }, true)
-Dropdown:SetOpen(true)
-```
-
-The list grows inside the layout itself and shows up to four options before switching to scrolling.
-
----
 
 ### Input
 
 ```lua
-local Input = Section:CreateInput({
-    Text = "Playlist name",
-    Placeholder = "My playlist...",
-    Default = "",
-    ClearTextOnFocus = false,
-
-    Changed = function(text)
-        print("While typing:", text)
-    end,
-
+Section:CreateInput({
+    Text = "Name",
+    Placeholder = "Type here...",
     Callback = function(text, enterPressed)
-        print("Final:", text, "Enter:", enterPressed)
     end,
 })
 ```
 
-Methods:
+### Label and paragraph
 
 ```lua
-Input:SetText("New text")
-Input:SetText("Fires the callback", true)
-print(Input:GetText())
-Input:Focus()
-```
-
----
-
-### Label
-
-```lua
-local Label = Section:CreateLabel({
+Section:CreateLabel({
     Text = "Version " .. Library.Version,
     Bold = true,
-    Color = Library.Theme.AccentHover,
-    TextSize = 13,
-    Alignment = Enum.TextXAlignment.Left,
+})
+
+Section:CreateParagraph({
+    Title = "Information",
+    Content = "Longer explanatory content.",
 })
 ```
-
-Methods:
-
-```lua
-Label:SetText("Updated text")
-Label:SetColor(Color3.fromRGB(255, 255, 255))
-```
-
----
-
-### Paragraph
-
-```lua
-local Paragraph = Section:CreateParagraph({
-    Title = "About",
-    Content = "Longer content with automatic line wrapping.",
-})
-```
-
-Methods:
-
-```lua
-Paragraph:SetTitle("New title")
-Paragraph:SetContent("New content")
-```
-
-> [!NOTE]
-> `SetTitle` only updates the title if the component was created with a `Title` property in the first place.
-
----
 
 ### Keybind Picker
 
 ```lua
-local Keybind = Section:CreateKeybindPicker({
-    Text = "Menu shortcut",
-    Description = "Click and press a key.",
-    Default = Enum.KeyCode.RightShift,
-    BindToWindow = true,
+Section:CreateKeybindPicker({
+    Text = "Open inventory",
+    Default = Enum.KeyCode.I,
     Callback = function(keyCode)
-        print("New keybind:", keyCode)
+    end,
+    Pressed = function()
     end,
 })
 ```
 
-Methods:
+## Native search controller
+
+Search is initialized as a first-class controller owned by the window. It owns its query, visibility, focus state, result lifecycle, searchable entry registry, and all related connections. Components register their metadata when they are created, so search does not scrape or manipulate descendant UI text at query time.
 
 ```lua
-Keybind:BeginListening()
-Keybind:CancelListening()
-Keybind:SetKeybind(Enum.KeyCode.F4)
-Keybind:SetKeybind(nil) -- removes the keybind
-print(Keybind:GetKeybind())
-```
+local Search = Window:GetSearchController()
 
-Behavior while capturing:
-
-- Text switches to `[ ... ]`.
-- The next keyboard key gets captured.
-- `Backspace` or `Delete` clears the bind.
-- Only one picker can listen at a time inside the window.
-- With `BindToWindow = true`, the value updates the UI's main shortcut.
-- With `BindToWindow = false`, the component keeps its own independent value.
-
----
-
-## 🔎 Global Search
-
-The topbar has a search bar inspired by Spotify. It automatically scans component text, tab names and section names already created.
-
-As you type, results show up below the field. Clicking a result will:
-
-- Open the right tab.
-- Open the side panel if the result lives inside `Settings`.
-- Scroll to the found component.
-- Briefly highlight the card so it's easy to spot.
-
-```lua
-Window:FocusSearch()
 Window:SetSearchQuery("volume")
 print(Window:GetSearchQuery())
+Window:FocusSearch()
 Window:SetSearchVisible(false)
+
+-- The controller is also available directly.
+Search:SetQuery("effects")
 ```
 
-Search doesn't create permanent connections per result — temporary listeners get destroyed every time the list rebuilds. Components added after the window was created also show up automatically.
+Search results include tabs, sections, component titles, descriptions, current values, dropdown options, input values, and Settings content. Selecting a result opens the correct location and highlights it.
 
----
-
-## ⚙️ Settings and Keybind
-
-The `Settings` tab is created automatically at the bottom of the sidebar. Selecting it **doesn't replace the main page**: an overlay panel slides in from the right, following the same pattern as Spotify desktop's context panel.
-
-The panel includes:
-
-- Compact header with a title and a `×` button.
-- Large experience image, with a dark gradient, name and creator overlaid on top.
-- Scrollable area below the hero for the Keybind Picker and any section added later.
-- Closes via its button or an outside click.
-- Adaptive width, using the same `UIScale` as the main window.
-- Fully clipped inside the content area, so it doesn't spill over the sidebar or the outer corners.
+Every component accepts optional custom search keywords:
 
 ```lua
-local SettingsTab = Window:GetSettingsTab()
-```
-
-It already contains a `Keybind Picker` wired to the window. The default key is:
-
-```lua
-Enum.KeyCode.RightShift
-```
-
-That key opens/closes the whole interface:
-
-```lua
-Window:SetKeybind(Enum.KeyCode.F4)
-```
-
-To remove the shortcut:
-
-```lua
-Window:SetKeybind(nil)
-```
-
-You can also disable it right when creating the window:
-
-```lua
-local Window = Library:CreateWindow({
-    Keybind = false,
+Section:CreateToggle({
+    Text = "Performance mode",
+    SearchKeywords = { "fps", "optimization", "graphics" },
 })
 ```
 
-The keybind won't fire when:
-
-- Another Keybind Picker is capturing a key.
-- The input was consumed by the game.
-- The player is typing in a `TextBox`.
-
-### Adding content to Settings
-
-```lua
-local SettingsTab = Window:GetSettingsTab()
-local ExtraSection = SettingsTab:CreateSection("Preferences")
-
-ExtraSection:CreateToggle({
-    Text = "Show notifications",
-    Default = true,
-})
-```
-
-> [!TIP]
-> Manually creating a tab named `Settings` just returns the existing automatic tab instead of duplicating it.
-
-The panel uses an internal viewport inset from the window's edges, so the animation is born inside the window instead of covering the outer rounded corners.
-
-You can also control the panel through code:
+## Settings panel
 
 ```lua
 Window:SetSettingsPanelVisible(true)
+Window:SetSettingsPanelVisible(false)
 Window:ToggleSettingsPanel()
-print(Window:IsSettingsPanelVisible())
-```
 
----
-
-## 🎮 Now Playing Bar
-
-The fixed bottom bar shows info about the current experience:
-
-- Game icon.
-- Experience name.
-- Creator name.
-- "Current experience" indicator.
-- Central scale controls styled like playback buttons (`-`, percentage, `+`).
-- Timeline with elapsed time since the window was created.
-
-By default the library tries to auto-fill this info. You can override it on creation:
-
-```lua
-local Window = Library:CreateWindow({
-    GameName = "My experience",
-    GameCreator = "My studio",
-    GameIcon = "rbxassetid://123456789",
+local SettingsTab = Window:GetSettingsTab()
+SettingsTab:CreateToggle({
+    Text = "Extra option",
 })
 ```
 
-Or at runtime:
+Settings components automatically render inside the right-side panel.
 
-```lua
-Window:SetGameInfo({
-    Name = "New name",
-    Creator = "New creator",
-    Icon = "rbxassetid://123456789",
-})
-```
-
-To hide/show the bar:
-
-```lua
-Window:SetNowPlayingVisible(false)
-Window:SetNowPlayingVisible(true)
-```
-
-### Session timer
-
-The timeline runs on `RunService.Heartbeat`, with the connection registered in the window's cleanup system. The label shows the actual elapsed time; the green fill uses `SessionTimerDuration` only as a visual scale.
-
-```lua
-local Window = Library:CreateWindow({
-    ShowSessionTimer = true,
-    SessionTimerDuration = 3600,
-    SessionTimerText = "Time open",
-})
-
-print(Window:GetSessionElapsed())
-
-Window:ResetSessionTimer()
-Window:SetSessionTimerVisible(false)
-Window:SetSessionTimerVisible(true)
-```
-
-Once `SessionTimerDuration` is reached, the bar stays at 100% but the clock keeps counting normally.
-
-When available width is tight, the right-side indicator gets hidden automatically. The scale controls stay centered, and the game name gets truncated before it reaches that area.
-
----
-
-## 📱 Mini Player
-
-The `−` button next to the close button collapses the full window and shows a compact popup in the **bottom-right corner of the screen**.
-
-The popup shows:
-
-- The experience's icon filling the background.
-- A dark gradient overlay to keep text readable.
-- Game name and creator name.
-- Elapsed session time.
-- The configured total duration, or `No limit` when `SessionTimerDuration = false`.
-- Timeline synced with the Now Playing bar.
-- `-`, percentage and `+` controls, reusing the same scale function as the full window.
-- An `↗` button to go back to the full interface.
-
-The mini player can be dragged by its header. Its position is clamped to the viewport and stays valid when resolution or scale changes.
+## Mini player
 
 ```lua
 Window:SetMinimized(true)
 Window:SetMinimized(false)
-
 Window:ToggleMinimized()
-print(Window:IsMinimized())
-
--- Snap it back to the bottom-right corner:
 Window:ResetMiniPlayerPosition()
 ```
 
-The popup's scale uses the same value set through `Window:SetScale()`. AutoScale only computes the fit limit needed for the mini player to stay inside the viewport, without overriding the user's preference.
+The mini player shares the main window scale, supports mouse and touch dragging, and remains clamped to the viewport.
+
+## Session timeline
 
 ```lua
-Window:SetScale(1.2)
+print(Window:GetSessionElapsed())
+Window:ResetSessionTimer()
+Window:SetSessionTimerVisible(false)
 ```
 
-You can also start minimized:
+## Notifications
 
 ```lua
-local Window = Library:CreateWindow({
-    Minimized = true,
-})
-```
-
-Switching between modes runs in two synced phases: the current mode fully fades out before the next one fades in, so parts of the window don't disappear out of order.
-
----
-
-## 🔔 Notifications
-
-Notifications show up in the **bottom-right corner** of the screen and stack upward. Each toast uses its own rounded surface, with the `UIStroke` outside any clipping, so borders don't get cut off and corners stay round.
-
-### Through the window
-
-```lua
-local Notification = Window:Notify({
-    Title = "All set",
+Window:Notify({
+    Title = "Saved",
     Content = "Your settings were saved.",
     Duration = 4,
     Color = Library.Theme.Accent,
 })
 ```
 
-### Through the library
+Notifications appear in the bottom-right corner and stack upward.
 
-`Library:Notify` sends the notification to the most recently created, still-active window:
-
-```lua
-Library:Notify({
-    Title = "Heads up",
-    Content = "This is a global notification.",
-})
-```
-
-### Options
-
-| Property | Type | Default | Description |
-|---|---:|---:|---|
-| `Title` | `string?` | — | Optional title. |
-| `Content` | `string` | `Notification` | Main content. |
-| `Duration` | `number` | `4` | Time in seconds. Minimum of `0.5`. |
-| `Color` | `Color3` | `Theme.Accent` | Color of the indicator and progress bar. |
-
-To dismiss early:
-
-```lua
-Notification:Dismiss()
-```
-
----
-
-## 📐 Responsiveness and Scaling
-
-The library calculates the final scale using:
-
-- Base window size.
-- Scale chosen by the user.
-- Current camera resolution.
-- Configured viewport margin.
-- Auto-scale cap.
-
-```lua
-Window:SetScale(1.2)
-Window:SetAutoScale(true)
-
-print(Window:GetScale())
-print(Window:GetEffectiveScale())
-```
-
-`GetScale()` returns the scale the user asked for. `GetEffectiveScale()` returns the scale actually applied after fitting the viewport.
-
-### Built-in controls
-
-The bottom bar has a central group inspired by Spotify's playback controls:
-
-- `-` button on the left to shrink the scale.
-- Percentage indicator highlighted in the center.
-- `+` button on the right to grow the scale.
-
-The topbar only keeps the `×` button to hide or destroy the UI, freeing up more room for the tab title.
-
-### Responsive behavior
-
-- The window stays inside the visible screen area.
-- The sidebar gets narrower on smaller viewports.
-- The bottom bar recalculates the content area.
-- Long text truncates where needed.
-- Tabs, pages and dropdowns scroll when needed.
-- Dragging works with both mouse and touch.
-
----
-
-## 🎨 Theme
-
-Access the theme through:
-
-```lua
-print(Library.Theme.Accent)
-```
-
-### Default palette
-
-| Field | Color |
-|---|---|
-| `Background` | `#0F0F0F` |
-| `BackgroundAlt` | `#121212` |
-| `Sidebar` | `#161616` |
-| `Panel` | `#191919` |
-| `Card` | `#1F1F1F` |
-| `CardHover` | `#272727` |
-| `CardPressed` | `#222222` |
-| `Input` | `#242424` |
-| `InputHover` | `#2A2A2A` |
-| `Accent` | `#1DB954` |
-| `AccentHover` | `#1ED760` |
-| `AccentSoft` | `#177A3B` |
-| `Text` | `#FFFFFF` |
-| `Subtext` | `#B3B3B3` |
-| `Muted` | `#7E7E7E` |
-| `Stroke` | `#434343` |
-| `Outline` | `#484848` |
-| `Divider` | `#363636` |
-| `Selected` | `#262626` |
-| `Danger` | `#E84855` |
-
-Example:
-
-```lua
-Section:CreateLabel({
-    Text = "Status: online",
-    Color = Library.Theme.AccentHover,
-    Bold = true,
-})
-```
-
-> [!WARNING]
-> `Library.Theme` exposes the live table, but components already created won't update automatically if you change a color afterward.
-
----
-
-## 🧹 Cleanup and Destruction
-
-The library has an internal cleanup system for connections, threads, instances and temporary objects.
-
-### Destroying a component
-
-```lua
-Toggle:Destroy()
-```
-
-### Destroying a section
-
-```lua
-Section:Destroy()
-```
-
-### Destroying a tab
-
-```lua
-Tab:Destroy()
-```
-
-### Destroying a window
+## Cleanup
 
 ```lua
 Window:Destroy()
-```
-
-### Destroying every window
-
-```lua
 Library:DestroyAll()
 ```
 
-After a component is destroyed:
+Destroying a component, tab, section, or window disconnects its registered events and cancels owned tweens and tasks.
 
-```lua
-print(Component:IsDestroyed()) -- true
-```
+## License
 
-> [!CAUTION]
-> Don't keep calling methods on tabs or sections after destroying them.
-
----
-
-## 💻 Full Example
-
-```lua
-local ReplicatedStorage = game:GetService("ReplicatedStorage")
-local Library = require(ReplicatedStorage:WaitForChild("SpotifyUILibrary"))
-
-local Window = Library:CreateWindow({
-    Title = "My Menu",
-    Subtitle = "Spotify UI Library",
-    Size = Vector2.new(940, 590),
-    Scale = 1,
-    AutoScale = true,
-    Keybind = Enum.KeyCode.RightShift,
-    ShowNowPlaying = true,
-    ShowSessionTimer = true,
-    SessionTimerDuration = 3600,
-    SessionTimerText = "Time open",
-    CloseBehavior = "Hide",
-})
-
-local HomeTab = Window:CreateTab({
-    Name = "Home",
-    Icon = "⌂",
-})
-
-local Controls = HomeTab:CreateSection("Main controls")
-
-Controls:CreateButton({
-    Text = "Show notification",
-    Description = "Opens a toast in the bottom-right corner.",
-    Callback = function()
-        Window:Notify({
-            Title = "Spotify UI",
-            Content = "The button was pressed successfully.",
-            Duration = 3,
-        })
-    end,
-})
-
-local MusicToggle = Controls:CreateToggle({
-    Text = "Music enabled",
-    Description = "Turns the game music on/off.",
-    Default = true,
-    Callback = function(enabled)
-        print("Music:", enabled)
-    end,
-})
-
-local VolumeSlider = Controls:CreateSlider({
-    Text = "Volume",
-    Min = 0,
-    Max = 100,
-    Default = 70,
-    Increment = 1,
-    Suffix = "%",
-    Callback = function(value)
-        print("Volume:", value)
-    end,
-})
-
-local QualityDropdown = Controls:CreateDropdown({
-    Text = "Quality",
-    Options = { "Low", "Medium", "High", "Ultra" },
-    Default = "High",
-    Callback = function(value)
-        print("Quality:", value)
-    end,
-})
-
-local PlaylistInput = Controls:CreateInput({
-    Text = "Playlist name",
-    Placeholder = "My playlist...",
-    Callback = function(text, enterPressed)
-        print("Playlist:", text, enterPressed)
-    end,
-})
-
-local AboutTab = Window:CreateTab({
-    Name = "About",
-    Icon = "i",
-})
-
-AboutTab:CreateParagraph({
-    Title = "Spotify UI Library",
-    Content = "A visual library for Roblox written in Luau.",
-})
-
-AboutTab:CreateLabel({
-    Text = "Version " .. Library.Version,
-    Bold = true,
-    Color = Library.Theme.AccentHover,
-})
-
-local SettingsTab = Window:GetSettingsTab()
-local SettingsInfo = SettingsTab:CreateSection("Info")
-
-SettingsInfo:CreateLabel({
-    Text = "The keybind only persists for the current session.",
-    Color = Library.Theme.Subtext,
-})
-```
-
----
-
-## 🛠️ Common Issues
-
-### `Players.LocalPlayer` is `nil`
-
-The library is running on the server. Move the init code to a `LocalScript`.
-
-### The interface doesn't show up
-
-Check that:
-
-- The ModuleScript is in `ReplicatedStorage`.
-- The name you're using in `WaitForChild` is correct.
-- The LocalScript is in `StarterPlayerScripts` or `StarterGui`.
-- No earlier error interrupted the script.
-
-### The window closes and doesn't come back
-
-If you're using:
-
-```lua
-CloseBehavior = "Destroy"
-```
-
-the window gets fully removed. Use the default `"Hide"` if you want to reopen it via the keybind.
-
-### The keybind isn't working
-
-Check whether:
-
-- The keybind was removed with `SetKeybind(nil)`.
-- The player is typing in a `TextBox`.
-- Another Keybind Picker is currently listening.
-- The input was consumed by another UI in the game.
-
-### The window looks smaller than the scale I set
-
-With `AutoScale = true`, the library can shrink the scale to keep the window inside the viewport. Compare:
-
-```lua
-print(Window:GetScale())
-print(Window:GetEffectiveScale())
-```
-
-### Game name or creator didn't load
-
-You can set the info manually:
-
-```lua
-Window:SetGameInfo({
-    Name = "Game name",
-    Creator = "Creator name",
-    Icon = "rbxassetid://123456789",
-})
-```
-
-### A component isn't needed anymore
-
-Destroy it to remove the interface and its connections:
-
-```lua
-Component:Destroy()
-```
-
----
-
-## 📄 License
-
-No license has been set for this package yet. Add a `LICENSE` file with the terms you want before publishing this library publicly.
-
----
-
-<div align="center">
-
-Made in **Luau** for **Roblox**, visually inspired by **Spotify**.
-
-`Spotify UI Library v1.9.0`
-
-</div>
+Choose a license before publishing the repository publicly. Lucide icons are distributed under their own upstream license.
