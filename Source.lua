@@ -4611,17 +4611,14 @@ function Library:CreateWindow(config)
 	addCorner(scaleMinus, 16)
 	local scaleMinusStroke = addStroke(scaleMinus, Theme.Stroke, 0.78, 1)
 	local scaleMinusScale = create("UIScale", { Scale = 1, Parent = scaleMinus })
-	local scaleMinusIcon = makeIcon(
-		scaleMinus,
-		{
-			Icon = "minus",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(15, 15),
-			Color = Theme.Subtext,
-			ZIndex = 8,
-		}
-	)
+	local scaleMinusIcon = makeIcon(scaleMinus, {
+		Icon = "minus",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(15, 15),
+		Color = Theme.Subtext,
+		ZIndex = 8,
+	})
 
 	local scaleLabel = makeTextLabel(topbar, {
 		Position = UDim2.new(1, -154, 0.5, -16),
@@ -4645,17 +4642,14 @@ function Library:CreateWindow(config)
 	addCorner(scalePlus, 16)
 	local scalePlusStroke = addStroke(scalePlus, Theme.Stroke, 0.78, 1)
 	local scalePlusScale = create("UIScale", { Scale = 1, Parent = scalePlus })
-	local scalePlusIcon = makeIcon(
-		scalePlus,
-		{
-			Icon = "plus",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(15, 15),
-			Color = Theme.Subtext,
-			ZIndex = 8,
-		}
-	)
+	local scalePlusIcon = makeIcon(scalePlus, {
+		Icon = "plus",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(15, 15),
+		Color = Theme.Subtext,
+		ZIndex = 8,
+	})
 
 	local minimizeButton = makeTextButton(topbar, {
 		Position = UDim2.new(1, -90, 0.5, -16),
@@ -4667,17 +4661,14 @@ function Library:CreateWindow(config)
 	addCorner(minimizeButton, 16)
 	local minimizeStroke = addStroke(minimizeButton, Theme.Stroke, 0.78, 2)
 	local minimizeScale = create("UIScale", { Scale = 1, Parent = minimizeButton })
-	local minimizeIcon = makeIcon(
-		minimizeButton,
-		{
-			Icon = "minus",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(15, 15),
-			Color = Theme.Subtext,
-			ZIndex = 8,
-		}
-	)
+	local minimizeIcon = makeIcon(minimizeButton, {
+		Icon = "minus",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(15, 15),
+		Color = Theme.Subtext,
+		ZIndex = 8,
+	})
 
 	local closeButton = makeTextButton(topbar, {
 		Position = UDim2.new(1, -50, 0.5, -16),
@@ -4689,17 +4680,14 @@ function Library:CreateWindow(config)
 	addCorner(closeButton, 16)
 	local closeStroke = addStroke(closeButton, Theme.Stroke, 0.78, 1)
 	local closeScale = create("UIScale", { Scale = 1, Parent = closeButton })
-	local windowCloseIcon = makeIcon(
-		closeButton,
-		{
-			Icon = "x",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(14, 14),
-			Color = Theme.Subtext,
-			ZIndex = 8,
-		}
-	)
+	local windowCloseIcon = makeIcon(closeButton, {
+		Icon = "x",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(14, 14),
+		Color = Theme.Subtext,
+		ZIndex = 8,
+	})
 
 	local pageContainer = create("Frame", {
 		Name = "Pages",
@@ -4792,6 +4780,24 @@ function Library:CreateWindow(config)
 	scalePlus.BackgroundColor3 = Theme.PanelAlt
 	scalePlus.TextColor3 = Theme.Subtext
 	scalePlus.ZIndex = 24
+
+	makeIcon(scaleMinus, {
+		Icon = "minus",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(15, 15),
+		Color = Theme.Subtext,
+		ZIndex = 25,
+	})
+
+	makeIcon(scalePlus, {
+		Icon = "plus",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(15, 15),
+		Color = Theme.Subtext,
+		ZIndex = 25,
+	})
 
 	local gameIconHolder = create("Frame", {
 		Name = "GameIconHolder",
@@ -5460,17 +5466,14 @@ function Library:CreateWindow(config)
 		Text = "",
 		ZIndex = 127,
 	})
-	local miniScaleMinusIcon = makeIcon(
-		miniScaleMinus,
-		{
-			Icon = "minus",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(15, 15),
-			Color = Theme.Text,
-			ZIndex = 128,
-		}
-	)
+	local miniScaleMinusIcon = makeIcon(miniScaleMinus, {
+		Icon = "minus",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(15, 15),
+		Color = Theme.Text,
+		ZIndex = 128,
+	})
 	addCorner(miniScaleMinus, 15)
 	local miniScaleMinusStroke = addStroke(miniScaleMinus, Theme.Text, 0.74, 2)
 	local miniScaleMinusScale = create("UIScale", { Scale = 1, Parent = miniScaleMinus })
@@ -5497,17 +5500,14 @@ function Library:CreateWindow(config)
 		Text = "",
 		ZIndex = 127,
 	})
-	local miniScalePlusIcon = makeIcon(
-		miniScalePlus,
-		{
-			Icon = "plus",
-			AnchorPoint = Vector2.new(0.5, 0.5),
-			Position = UDim2.fromScale(0.5, 0.5),
-			Size = UDim2.fromOffset(15, 15),
-			Color = Theme.Text,
-			ZIndex = 128,
-		}
-	)
+	local miniScalePlusIcon = makeIcon(miniScalePlus, {
+		Icon = "plus",
+		AnchorPoint = Vector2.new(0.5, 0.5),
+		Position = UDim2.fromScale(0.5, 0.5),
+		Size = UDim2.fromOffset(15, 15),
+		Color = Theme.Text,
+		ZIndex = 128,
+	})
 	addCorner(miniScalePlus, 15)
 	local miniScalePlusStroke = addStroke(miniScalePlus, Theme.Text, 0.74, 2)
 	local miniScalePlusScale = create("UIScale", { Scale = 1, Parent = miniScalePlus })
