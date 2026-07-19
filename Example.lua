@@ -21,7 +21,7 @@ local Window = Library:CreateWindow({
 	LoadingTitle = "Spotify UI",
 	LoadingSubtitle = "By @spectronal",
 	LoadingText = "Preparing your interface",
-	LoadingDuration = 1.8,
+	LoadingDuration = 5,
 	LoadingIcon = "loader-circle",
 })
 
@@ -57,6 +57,19 @@ General:CreateButton({
 			ActionCallback = function()
 				print("Settings applied")
 			end,
+		})
+	end,
+})
+
+General:CreateButton({
+	Text = "Show error notification",
+	Description = "Displays an error with an action button.",
+	Callback = function()
+		Window:Notify({
+			Type = "Error",
+			Title = "Something went wrong",
+			Content = "An error occurred while applying the settings.",
+			Duration = 4.5,
 		})
 	end,
 })

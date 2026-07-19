@@ -2639,19 +2639,6 @@ function LoadingController.new(window, screenGui, config)
 	self._maid:Give(overlay)
 	addGradient(overlay, Color3.fromRGB(17, 17, 17), Color3.fromRGB(6, 6, 6), 115)
 
-	local glowTop = create("Frame", {
-		Name = "TopGlow",
-		Position = UDim2.new(0.5, -180, 0.5, -154),
-		Size = UDim2.fromOffset(360, 90),
-		BackgroundColor3 = accentColor,
-		BackgroundTransparency = 0.9,
-		BorderSizePixel = 0,
-		ZIndex = 301,
-		Parent = overlay,
-	})
-	addCorner(glowTop, 45)
-	addGradient(glowTop, accentColor, Theme.Background, 90)
-
 	local card = create("Frame", {
 		Name = "LoadingCard",
 		AnchorPoint = Vector2.new(0.5, 0.5),
