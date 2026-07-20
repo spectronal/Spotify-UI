@@ -1,0 +1,63 @@
+site_name: Spotify UI Library
+site_description: A polished Roblox UI library written in Luau, inspired by Spotify's desktop and mobile interfaces.
+site_url: https://spectronal.github.io/Spotify-UI/
+repo_url: https://github.com/spectronal/Spotify-UI
+repo_name: spectronal/Spotify-UI
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  palette:
+    - scheme: slate
+      primary: green
+      accent: green
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+    - scheme: default
+      primary: green
+      accent: green
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+  features:
+    - navigation.tabs
+    - navigation.top
+    - navigation.instant
+    - navigation.tracking
+    - content.code.copy
+    - content.action.edit
+    - search.suggest
+    - search.highlight
+  icon:
+    repo: fontawesome/brands/github
+
+markdown_extensions:
+  - admonition
+  - pymdownx.details
+  - pymdownx.superfences
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.tabbed:
+      alternate_style: true
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting Started:
+      - Quick Start: getting-started.md
+      - Window Options: window-options.md
+  - Building Menus:
+      - Tabs & Sections: tabs-sections.md
+      - Components: components.md
+  - Features:
+      - Loading Screen: loading-screen.md
+      - Search: search.md
+      - Notifications: notifications.md
+      - Settings Panel: settings-panel.md
+      - Mini Player: mini-player.md
+      - Session Timeline: session-timeline.md
+  - Reference:
+      - Complete Example: complete-example.md
+      - Cleanup: cleanup.md

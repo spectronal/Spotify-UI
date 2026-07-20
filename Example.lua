@@ -27,7 +27,7 @@ local Window = Library:CreateWindow({
 
 local Home = Window:CreateTab({
 	Name = "Home",
-	Icon = "house",
+	Icon = "pin",
 })
 
 local General = Home:CreateSection("General")
@@ -69,6 +69,19 @@ General:CreateButton({
 			Type = "Error",
 			Title = "Something went wrong",
 			Content = "An error occurred while applying the settings.",
+			Duration = 4.5,
+		})
+	end,
+})
+
+General:CreateButton({
+	Text = "Show info notification",
+	Description = "Displays an info message with an action button.",
+	Callback = function()
+		Window:Notify({
+			Type = "Info",
+			Title = "Information",
+			Content = "This is an informational message.",
 			Duration = 4.5,
 		})
 	end,
