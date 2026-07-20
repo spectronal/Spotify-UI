@@ -6603,7 +6603,6 @@ function Library:CreateWindow(config)
 
 		if input.KeyCode == window._keybind then
 			window:ToggleVisible()
-			window:SetMinimized(window:ToggleVisible())
 		end
 	end))
 
