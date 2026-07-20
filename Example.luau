@@ -1,28 +1,12 @@
 -- Spotify UI Library Example
 
 local Library =
-	loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/Source.lua"))()
+	loadstring(game:HttpGet("https://raw.githubusercontent.com/spectronal/Spotify-UI/refs/heads/main/Source.luau"))()
 
 local Window = Library:CreateWindow({
 	Title = "Spotify UI Example",
 	Subtitle = "Modern Roblox interface",
 	Size = Vector2.new(940, 590),
-	Scale = 1,
-	AutoScale = true,
-	Animations = true,
-	Keybind = Enum.KeyCode.RightShift,
-	ShowSearch = true,
-	SearchPlaceholder = "What do you want to find?",
-	ShowNowPlaying = true,
-	ShowSessionTimer = true,
-	SessionTimerDuration = 3600,
-
-	ShowLoading = true,
-	LoadingTitle = "Spotify UI",
-	LoadingSubtitle = "By @spectronal",
-	LoadingText = "Preparing your interface",
-	LoadingDuration = 5,
-	LoadingIcon = "loader-circle",
 })
 
 local Home = Window:CreateTab({

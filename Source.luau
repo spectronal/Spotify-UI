@@ -1,4 +1,7 @@
 -- Source Spotify Library 2.1.1
+-- MIT License
+
+-- Copyright (c) 2026 spectronal
 
 local Players = game:GetService("Players")
 local TweenService = game:GetService("TweenService")
@@ -6599,7 +6602,7 @@ function Library:CreateWindow(config)
 		end
 
 		if input.KeyCode == window._keybind then
-			window:ToggleVisible()
+			window:SetMinimized(window:ToggleVisible())
 		end
 	end))
 
