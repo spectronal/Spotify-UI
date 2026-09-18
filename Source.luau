@@ -1,4 +1,4 @@
--- Source Spotify Library 2.1.1
+-- Source Spotify Library 2.2.0
 -- MIT License
 
 -- Copyright (c) 2026 spectronal
@@ -11,7 +11,7 @@ local UserInputService = game:GetService("UserInputService")
 local Workspace = game:GetService("Workspace")
 
 local Library = {
-	Version = "2.1.1",
+	Version = "2.2.0",
 	_windows = {},
 	_windowCounter = 0,
 }
@@ -109,6 +109,7 @@ local ICON_ALIASES = {
 	warning = "triangle-alert",
 	error = "circle-x",
 	loading = "loader-circle",
+	refresh = "refresh-cw",
 }
 
 local ICON_FALLBACKS = {
@@ -130,6 +131,7 @@ local ICON_FALLBACKS = {
 	["triangle-alert"] = "!",
 	["circle-x"] = "×",
 	["loader-circle"] = "◌",
+	["refresh-cw"] = "↻",
 }
 
 local NOTIFICATION_STYLES = {
@@ -1361,6 +1363,18 @@ function SectionMethods:CreateDropdown(config)
 	local selectedValues = {}
 	local opened = false
 	local collapsedHeight = 58
+	local refreshCallback = type(config.RefreshCallback) == "function" and config.RefreshCallback
+		or (type(config.Refresh) == "function" and config.Refresh or nil)
+	local showRefresh = config.Refreshable == true
+		or config.ShowRefresh == true
+		or config.Refresh == true
+		or refreshCallback ~= nil
+	local refreshKeepValue = config.RefreshKeepValue ~= false
+	local refreshing = false
+	local refreshGeneration = 0
+	local refreshTween = nil
+	local refreshThread = nil
+	local api = {}
 
 	local function optionExists(candidate)
 		for _, option in ipairs(options) do
@@ -1411,9 +1425,10 @@ function SectionMethods:CreateDropdown(config)
 		ZIndex = 10,
 	})
 
+	local selectorRightInset = showRefresh and 62 or 16
 	local selector = makeTextButton(row, {
 		Position = UDim2.new(0.45, 0, 0, 10),
-		Size = UDim2.new(0.55, -16, 0, 38),
+		Size = UDim2.new(0.55, -selectorRightInset, 0, 38),
 		BackgroundColor3 = Theme.Input,
 		Text = "",
 		ClipsDescendants = false,
@@ -1440,6 +1455,39 @@ function SectionMethods:CreateDropdown(config)
 		Color = Theme.Subtext,
 		ZIndex = 12,
 	})
+
+	local refreshButton = nil
+	local refreshIcon = nil
+	local refreshStroke = nil
+	if showRefresh then
+		refreshButton = makeTextButton(row, {
+			Name = "RefreshButton",
+			Position = UDim2.new(1, -54, 0, 10),
+			Size = UDim2.fromOffset(38, 38),
+			BackgroundColor3 = Theme.Input,
+			Text = "",
+			ZIndex = 11,
+		})
+		addCorner(refreshButton, CONTROL_CORNER_RADIUS)
+		refreshStroke = addInsetStroke(refreshButton, CONTROL_CORNER_RADIUS, Theme.Stroke, 0.68, 2, 14)
+		refreshIcon = makeIcon(refreshButton, {
+			Icon = config.RefreshIcon or "refresh-cw",
+			AnchorPoint = Vector2.new(0.5, 0.5),
+			Position = UDim2.fromScale(0.5, 0.5),
+			Size = UDim2.fromOffset(17, 17),
+			Color = Theme.Subtext,
+			ZIndex = 15,
+		})
+		bindInteractiveSurface(refreshButton, maid, refreshButton, refreshStroke, nil, {
+			NormalColor = Theme.Input,
+			HoverColor = Theme.InputHover,
+			PressedColor = Theme.CardPressed,
+			StrokeColor = Theme.Stroke,
+			HoverStrokeColor = Theme.AccentHover,
+			StrokeTransparency = 0.68,
+			HoverStrokeTransparency = 0.28,
+		})
+	end
 
 	local optionsHolder = create("ScrollingFrame", {
 		Name = "Options",
@@ -1632,6 +1680,81 @@ function SectionMethods:CreateDropdown(config)
 		end
 	end
 
+	local function setRefreshing(newValue)
+		if not showRefresh or not refreshButton or not refreshIcon then
+			return
+		end
+
+		refreshing = newValue == true
+		refreshButton.Active = not refreshing
+		setIconColor(refreshIcon, refreshing and Theme.AccentHover or Theme.Subtext, FAST_TWEEN_INFO)
+		playTween(refreshStroke, FAST_TWEEN_INFO, {
+			Color = refreshing and Theme.Accent or Theme.Stroke,
+			Transparency = refreshing and 0.2 or 0.68,
+		})
+
+		if refreshTween then
+			refreshTween:Cancel()
+			refreshTween = nil
+		end
+
+		if refreshing then
+			refreshIcon.Rotation = 0
+			refreshTween = TweenService:Create(
+				refreshIcon,
+				TweenInfo.new(0.72, Enum.EasingStyle.Linear, Enum.EasingDirection.InOut, -1),
+				{ Rotation = 360 }
+			)
+			refreshTween:Play()
+		else
+			playTween(refreshIcon, FAST_TWEEN_INFO, { Rotation = 0 })
+		end
+	end
+
+	local function runRefresh()
+		if not showRefresh or refreshing then
+			return
+		end
+
+		if refreshThread then
+			pcall(task.cancel, refreshThread)
+			refreshThread = nil
+		end
+
+		refreshGeneration += 1
+		local generation = refreshGeneration
+		setRefreshing(true)
+
+		refreshThread = task.spawn(function()
+			local success = true
+			local result = nil
+
+			if refreshCallback then
+				success, result = xpcall(function()
+					return refreshCallback(api)
+				end, debug.traceback)
+			end
+
+			if generation ~= refreshGeneration or not row.Parent then
+				return
+			end
+
+			if success then
+				if type(result) == "table" then
+					api:SetOptions(result, refreshKeepValue)
+				else
+					rebuildOptions()
+				end
+			else
+				warn("[SpotifyUI] Dropdown refresh error:\n" .. tostring(result))
+			end
+
+			refreshThread = nil
+			setRefreshing(false)
+			safeCallback(config.Refreshed, success, result, api)
+		end)
+	end
+
 	maid:Give(selector.MouseEnter:Connect(function()
 		playTween(selector, FAST_TWEEN_INFO, { BackgroundColor3 = Theme.InputHover })
 		playTween(selectorStroke, FAST_TWEEN_INFO, {
@@ -1650,10 +1773,35 @@ function SectionMethods:CreateDropdown(config)
 		setOpened(not opened)
 	end))
 
+	if refreshButton then
+		maid:Give(refreshButton.MouseEnter:Connect(function()
+			if not refreshing then
+				setIconColor(refreshIcon, Theme.Text, FAST_TWEEN_INFO)
+			end
+		end))
+		maid:Give(refreshButton.MouseLeave:Connect(function()
+			if not refreshing then
+				setIconColor(refreshIcon, Theme.Subtext, FAST_TWEEN_INFO)
+			end
+		end))
+		maid:Give(refreshButton.MouseButton1Click:Connect(runRefresh))
+	end
+
+	maid:Give(function()
+		refreshGeneration += 1
+		if refreshThread then
+			pcall(task.cancel, refreshThread)
+			refreshThread = nil
+		end
+		if refreshTween then
+			refreshTween:Cancel()
+			refreshTween = nil
+		end
+	end)
+
 	updateSelectedLabel()
 	rebuildOptions()
 
-	local api = {}
 	function api:SetValue(newValue, fireCallback)
 		setValue(newValue, fireCallback)
 		rebuildOptions()
@@ -1663,6 +1811,9 @@ function SectionMethods:CreateDropdown(config)
 			return table.clone(getMultiValues())
 		end
 		return value
+	end
+	function api:GetOptions()
+		return table.clone(options)
 	end
 	function api:SetOptions(newOptions, keepValue)
 		options = table.clone(newOptions or {})
@@ -1679,6 +1830,15 @@ function SectionMethods:CreateDropdown(config)
 			setValue(nil, false)
 		end
 		rebuildOptions()
+	end
+	function api:Refresh()
+		runRefresh()
+	end
+	function api:SetRefreshing(isRefreshing)
+		setRefreshing(isRefreshing)
+	end
+	function api:IsRefreshing()
+		return refreshing
 	end
 	function api:Select(optionValue, fireCallback)
 		if not multi or not optionExists(optionValue) then
@@ -1733,6 +1893,7 @@ function SectionMethods:CreateDropdown(config)
 				options,
 				selectedLabel.Text,
 				multi and "multiple multi select" or "single select",
+				showRefresh and "refresh reload update" or nil,
 			}
 		end,
 	})
@@ -2960,9 +3121,10 @@ function LoadingController:Finish(instant)
 		return self
 	end
 
-	local cardTween = playTween(self._card, TweenInfo.new(0.32, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
-		GroupTransparency = 1,
-	})
+	local cardTween =
+		playTween(self._card, TweenInfo.new(0.32, Enum.EasingStyle.Sine, Enum.EasingDirection.Out), {
+			GroupTransparency = 1,
+		})
 	playTween(self._cardScale, TweenInfo.new(0.32, Enum.EasingStyle.Quad, Enum.EasingDirection.In), {
 		Scale = 0.975,
 	})
