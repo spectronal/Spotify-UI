@@ -4,7 +4,7 @@
 
 A polished Roblox UI library written in Luau, inspired by Spotify's desktop and mobile interfaces.
 
-![Version](https://img.shields.io/badge/version-2.1.1-1DB954?style=for-the-badge)
+![Version](https://img.shields.io/badge/version-2.2.0-1DB954?style=for-the-badge)
 ![Language](https://img.shields.io/badge/Luau-Roblox-00A2FF?style=for-the-badge)
 ![Theme](https://img.shields.io/badge/theme-Spotify-121212?style=for-the-badge)
 
@@ -12,7 +12,28 @@ A polished Roblox UI library written in Luau, inspired by Spotify's desktop and 
 
 ## Update logs
 
-### v2.1.1
+### v2.2.0
+
+#### Added
+
+- Optional Lucide `refresh-cw` button beside dropdown selectors.
+- `RefreshCallback` can return a new options table after synchronous or yielding work.
+- `Refreshable`, `ShowRefresh`, `RefreshIcon`, `RefreshKeepValue`, and `Refreshed` dropdown options.
+- `Dropdown:Refresh()`, `Dropdown:GetOptions()`, `Dropdown:SetRefreshing()`, and `Dropdown:IsRefreshing()`.
+
+#### Changed
+
+- Refreshing dropdowns display a native spinning state and temporarily block repeated refresh clicks.
+- The selector automatically reserves space for the refresh control without changing dropdowns that do not enable it.
+- Existing selections can be preserved automatically when refreshed options still contain them.
+
+#### Fixed
+
+- Refresh tasks are invalidated when the dropdown is destroyed, preventing late callbacks from touching removed UI.
+- Refresh icon tweens are cancelled through the component lifecycle.
+
+<details>
+<summary><strong>v2.1.1</strong></summary>
 
 #### Changed
 
@@ -30,6 +51,8 @@ A polished Roblox UI library written in Luau, inspired by Spotify's desktop and 
 
 - The loading fade no longer changes the transparency of the entire screen-sized container.
 - The loading card now owns its own `CanvasGroup`, preventing the game view from fading with the UI card.
+
+</details>
 
 <details>
 <summary><strong>v2.1.0</strong></summary>
@@ -138,7 +161,7 @@ A polished Roblox UI library written in Luau, inspired by Spotify's desktop and 
 - Direct lucide-roblox integration through its documented `GetAsset` API, with automatic loading and fallback glyphs.
 - Responsive window scaling based on `CurrentCamera.ViewportSize`.
 - Sidebar tabs, sections, buttons, toggles, sliders, dropdowns, inputs, labels, paragraphs, and keybind pickers.
-- Single-select and multi-select dropdowns.
+- Single-select and multi-select dropdowns with optional async refresh controls.
 - Native search controller and metadata registry integrated into the window lifecycle.
 - Right-side Settings panel inspired by Spotify's Now Playing panel.
 - Draggable mini player in the bottom-right corner.
@@ -284,6 +307,10 @@ General:CreateDropdown({
     Options = { "Bloom", "Shadows", "Particles", "Reflections" },
     Multi = true,
     Default = { "Bloom", "Shadows" },
+    Refreshable = true,
+    RefreshCallback = function()
+        return { "Bloom", "Shadows", "Particles", "Reflections", "Motion blur" }
+    end,
     Callback = function(selected)
         print(table.concat(selected, ", "))
     end,
@@ -411,6 +438,37 @@ local Dropdown = Section:CreateDropdown({
     Default = "High",
 })
 ```
+
+Refresh button:
+
+```lua
+local PlayersDropdown = Section:CreateDropdown({
+    Text = "Player",
+    Options = {},
+    Refreshable = true,
+    RefreshKeepValue = true,
+
+    RefreshCallback = function(dropdown)
+        local names = {}
+        for _, player in ipairs(game:GetService("Players"):GetPlayers()) do
+            table.insert(names, player.Name)
+        end
+
+        -- Returning a table updates the dropdown automatically.
+        return names
+    end,
+
+    Refreshed = function(success, result, dropdown)
+        print("Refresh completed:", success)
+    end,
+})
+
+PlayersDropdown:Refresh()
+print(PlayersDropdown:IsRefreshing())
+print(PlayersDropdown:GetOptions())
+```
+
+`RefreshCallback` may yield. While it is running, the Lucide `refresh-cw` icon spins and repeated clicks are ignored. The callback may either return a new options table or call `dropdown:SetOptions(...)` itself.
 
 Multi-select:
 
